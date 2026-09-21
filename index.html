@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scribble Reel &amp; Brush Maker — web animation tools made by Claude</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Scribble Reel and Brush Maker: web-based animation tools made by Claude. Everything runs in your browser, on your own device.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23E8532E'/%3E%3Cstop offset='1' stop-color='%231FA98F'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M7 20c4-9 7 5 11-4s5-3 7-6' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF1F0;
+    --panel:#FFFFFF;
+    --panel-2:#E4E7E9;
+    --ink:#18161C;
+    --ink-dim:#63616B;
+    --accent:#E8532E;
+    --accent-ink:#FFFFFF;
+    --accent-2:#1FA98F;
+    --accent-2-ink:#062420;
+    --line:#D6D3CE;
+    --shadow: 0 8px 24px rgba(20,16,10,.12);
+    --checker-a: rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141019;
+      --panel:#1E1926;
+      --panel-2:#282130;
+      --ink:#F3EFEA;
+      --ink-dim:#9B93A6;
+      --accent:#FF6A45;
+      --accent-ink:#1A0D08;
+      --accent-2:#3FE0C4;
+      --accent-2-ink:#062420;
+      --line:#342C3F;
+      --shadow: 0 8px 28px rgba(0,0,0,.45);
+      --checker-a: rgba(255,255,255,.06);
+    }
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; min-height:100%; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    display:flex; flex-direction:column; min-height:100vh; min-height:100dvh;
+  }
+  a{ color:inherit; }
+  a:focus-visible{ outline:2px solid var(--accent-2); outline-offset:3px; }
+
+  .wrap{ width:100%; max-width:860px; margin:0 auto; padding:0 22px; }
+
+  /* ---------- top bar ---------- */
+  .bar{ background:var(--panel); border-bottom:1px solid var(--line); }
+  .bar .wrap{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:12px; padding-bottom:12px; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .mark{
+    width:30px; height:30px; flex:0 0 auto; border-radius:7px; color:#fff;
+    background:linear-gradient(135deg, var(--accent), var(--accent-2));
+    display:flex; align-items:center; justify-content:center;
+  }
+  .brand-name{ font-weight:700; font-size:16px; letter-spacing:-0.01em; line-height:1.1; }
+  .brand-tag{ font-size:11px; color:var(--ink-dim); line-height:1.1; }
+  .by{
+    display:inline-flex; align-items:center; gap:7px;
+    font-size:13px; font-weight:600;
+    padding:6px 12px; border-radius:999px;
+    background:var(--accent-2); color:var(--accent-2-ink);
+    white-space:nowrap;
+  }
+  .by svg{ flex:0 0 auto; }
+
+  /* ---------- hero ---------- */
+  main{ flex:1 0 auto; }
+  .hero{ padding:64px 0 34px; }
+  .squiggle{ display:block; width:min(300px, 70%); height:auto; margin:0 0 22px; overflow:visible; }
+  .squiggle path{
+    fill:none; stroke:var(--accent); stroke-width:7; stroke-linecap:round; stroke-linejoin:round;
+    stroke-dasharray:1; stroke-dashoffset:0;
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .squiggle path{ stroke-dashoffset:1; animation:draw 1.3s .15s cubic-bezier(.5,.1,.2,1) forwards; }
+    @keyframes draw{ to{ stroke-dashoffset:0; } }
+  }
+  h1{
+    font-size:clamp(34px, 6.4vw, 60px); line-height:1.04; letter-spacing:-0.03em; font-weight:700;
+    margin:0 0 16px; max-width:15ch;
+  }
+  .lede{ font-size:clamp(16px, 2.2vw, 19px); color:var(--ink-dim); margin:0; max-width:52ch; }
+  .lede strong{ color:var(--ink); font-weight:600; }
+
+  .story{
+    margin:22px 0 0; padding:2px 0 2px 14px; max-width:52ch;
+    border-left:3px solid var(--accent); font-size:15px; color:var(--ink);
+  }
+  .story b{ font-weight:600; }
+
+  /* ---------- the two apps ---------- */
+  .apps{ display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:8px 0 30px; }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);
+    padding:22px; display:flex; flex-direction:column; gap:14px;
+  }
+  .card-head{ display:flex; align-items:center; gap:12px; }
+  .card-icon{
+    width:42px; height:42px; border-radius:10px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--panel-2); color:var(--ink);
+  }
+  .card.main .card-icon{ background:linear-gradient(135deg, var(--accent), var(--accent-2)); color:#fff; }
+  .card h2{ font-size:21px; margin:0; letter-spacing:-0.015em; line-height:1.15; }
+  .card p{ margin:0; color:var(--ink-dim); font-size:14.5px; flex:1 1 auto; }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    text-decoration:none; font-weight:600; font-size:15px;
+    padding:13px 18px; border-radius:11px;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--ink);
+    transition:transform .08s ease, background .12s ease, filter .12s ease;
+  }
+  .btn:hover{ background:var(--line); }
+  .btn:active{ transform:scale(0.97); }
+  .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .btn.primary:hover{ background:var(--accent); filter:brightness(1.07); }
+
+  /* ---------- privacy note ---------- */
+  .local{
+    display:flex; gap:14px; align-items:flex-start;
+    border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin:0 0 40px;
+    background:color-mix(in srgb, var(--accent-2) 10%, var(--panel));
+  }
+  .local svg{ flex:0 0 auto; margin-top:2px; color:var(--accent-2); }
+  .local b{ display:block; font-size:15px; margin-bottom:2px; }
+  .local span{ font-size:14px; color:var(--ink-dim); }
+
+  /* ---------- footer ---------- */
+  footer{ border-top:1px solid var(--line); background:var(--panel); }
+  footer .wrap{ padding-top:18px; padding-bottom:22px; display:flex; flex-direction:column; gap:4px; }
+  footer .made{ font-size:14px; font-weight:600; }
+  footer .fine{ font-size:12px; color:var(--ink-dim); max-width:70ch; }
+
+  @media (max-width: 680px){
+    .hero{ padding-top:40px; }
+    .apps{ grid-template-columns:1fr; }
+    .brand-tag{ display:none; }
+    .by{ font-size:12px; padding:5px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 3v18M17 3v18M2 8h5M2 16h5M17 8h5M17 16h5"/></svg></div>
+      <div>
+        <div class="brand-name">Scribble Reel</div>
+        <div class="brand-tag">frame&nbsp;by&nbsp;frame</div>
+      </div>
+    </div>
+    <span class="by"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Made by Claude</span>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <section class="hero">
+      <svg class="squiggle" viewBox="0 0 300 60" aria-hidden="true"><path pathLength="1" d="M6 38 C 34 4, 56 4, 80 30 S 124 58, 150 30 S 196 2, 222 30 S 266 54, 294 20"/></svg>
+      <h1>Animation tools, made by Claude.</h1>
+      <p class="lede">Two web apps for drawing frame-by-frame animation and designing your own brushes. <strong>Made by Claude</strong>, an AI assistant from Anthropic. Nothing to install: open one and start drawing.</p>
+      <p class="story"><b>The backstory:</b> a user asked Claude to make this out of spite toward a paid app, because that user is broke af.</p>
+    </section>
+
+    <section class="apps" aria-label="The apps">
+      <article class="card main">
+        <div class="card-head">
+          <div class="card-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></div>
+          <h2>Scribble Reel</h2>
+        </div>
+        <p>Draw frame by frame with layers, onion skin and audio, then export your animation as a GIF, MP4, WebM or PNG sequence.</p>
+        <a class="btn primary" href="scribble-reel.html">Open Scribble Reel</a>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="card-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/></svg></div>
+          <h2>Brush Maker</h2>
+        </div>
+        <p>Design custom brushes and textures with a live preview, then export them as a JSON file to import into Scribble Reel.</p>
+        <a class="btn" href="brush-maker.html">Open Brush Maker</a>
+      </article>
+    </section>
+
+    <aside class="local">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+      <div>
+        <b>It all runs on your own device.</b>
+        <span>Everything happens in your browser. Your drawings, projects and brushes are saved on your machine and are never uploaded anywhere.</span>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="made">Made by Claude, an AI assistant from Anthropic.</span>
+    <span class="fine">Only the fonts and the GIF exporter are fetched from public CDNs. Your artwork stays in this browser, so clearing site data will erase it. Export what you want to keep.</span>
+  </div>
+</footer>
+
+</body>
+</html>

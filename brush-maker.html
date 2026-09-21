@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Brush Maker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF1F0;
+    --panel:#FFFFFF;
+    --panel-2:#E4E7E9;
+    --ink:#18161C;
+    --ink-dim:#63616B;
+    --accent:#E8532E;
+    --accent-ink:#FFFFFF;
+    --accent-2:#1FA98F;
+    --accent-2-ink:#062420;
+    --line:#D6D3CE;
+    --danger:#D64550;
+    --checker-a: rgba(0,0,0,.05);
+    --shadow: 0 8px 24px rgba(20,16,10,.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141019;
+      --panel:#1E1926;
+      --panel-2:#282130;
+      --ink:#F3EFEA;
+      --ink-dim:#9B93A6;
+      --accent:#FF6A45;
+      --accent-ink:#1A0D08;
+      --accent-2:#3FE0C4;
+      --accent-2-ink:#062420;
+      --line:#342C3F;
+      --checker-a: rgba(255,255,255,.06);
+      --shadow: 0 8px 28px rgba(0,0,0,.45);
+    }
+  }
+
+  *{box-sizing:border-box;}
+  [hidden]{ display:none !important; }
+  html,body{height:100%; overscroll-behavior-x:none; overflow-x:hidden;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100%;
+  }
+  button, input, textarea{ font-family:inherit; color:inherit; }
+  button{ cursor:pointer; }
+  *{ -webkit-tap-highlight-color:transparent; }
+  button:focus, button:focus-visible{ outline:none; }
+  input:focus-visible, textarea:focus-visible, .brush-cell:focus-visible{ outline:2px solid var(--accent-2); outline-offset:2px; }
+
+  .app{
+    height:100vh;
+    height:100dvh;
+    display:grid;
+    grid-template-columns: 96px 1fr 340px;
+    grid-template-rows: auto minmax(0,1fr) auto;
+    grid-template-areas:
+      "header header header"
+      "toolbar stage inspector"
+      "filmstrip filmstrip filmstrip";
+  }
+
+  /* ---------- Header ---------- */
+  .app-header{
+    grid-area:header;
+    display:flex; align-items:center; gap:18px;
+    padding:10px 18px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brand{ display:flex; align-items:center; gap:9px; margin-right:4px; }
+  .brand-actions{ display:flex; align-items:center; gap:6px; margin-left:10px; }
+  .brand-mark{
+    width:30px;height:30px;flex:0 0 auto; border-radius:7px;
+    background:linear-gradient(135deg, var(--accent), var(--accent-2));
+    display:flex;align-items:center;justify-content:center; color:#fff;
+  }
+  .brand-name{ font-weight:700; font-size:16px; letter-spacing:-0.01em; line-height:1.1; }
+  .brand-tag{ font-size:11px; color:var(--ink-dim); line-height:1.1; }
+  .group{ display:flex; align-items:center; gap:6px; }
+  .header-scroll{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; flex:1 1 auto; }
+  .divider{ width:1px; align-self:stretch; background:var(--line); margin:2px 2px; }
+
+  .btn{
+    border:1px solid var(--line); background:var(--panel-2); color:var(--ink);
+    border-radius:9px; padding:8px 12px; font-size:13px; font-weight:500;
+    display:inline-flex; align-items:center; gap:6px; line-height:1;
+    transition:transform .08s ease, background .12s ease;
+  }
+  .btn:hover{ background:var(--line); }
+  .btn:active{ transform:scale(0.96); }
+  .btn:disabled{ opacity:.4; cursor:default; pointer-events:none; }
+  .btn-icon{ width:36px; height:36px; padding:0; justify-content:center; font-size:16px; }
+  .btn-primary{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .btn-primary:hover{ filter:brightness(1.06); background:var(--accent); }
+  .btn[aria-pressed="true"]{ background:var(--accent-2); color:var(--accent-2-ink); border-color:transparent; }
+  .btn-danger{ background:var(--danger); color:#fff; border-color:transparent; }
+  .btn-danger:hover{ filter:brightness(1.08); background:var(--danger); }
+  .btn svg, .hdr-icon svg{ display:block; }
+  .frame-counter{ font-size:12px; color:var(--ink-dim); font-variant-numeric:tabular-nums; white-space:nowrap; min-width:74px; text-align:center; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:1200; background:rgba(10,8,14,.55);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-card{
+    width:100%; max-width:300px; background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:18px; box-shadow:var(--shadow); animation:modal-pop .14s ease;
+  }
+  @keyframes modal-pop{ from{ transform:scale(.94); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  .modal-title{ font-size:15px; font-weight:700; margin:0 0 6px; }
+  .modal-desc{ font-size:12.5px; color:var(--ink-dim); line-height:1.45; margin:0 0 16px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; }
+
+  /* ---------- Left toolbar ---------- */
+  .toolbar{
+    grid-area:toolbar; background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0; min-width:0;
+  }
+  .toolbar-fixed{
+    flex:0 0 auto; display:flex; flex-direction:column; align-items:center;
+    padding:14px 10px 10px; border-bottom:1px solid var(--line);
+  }
+  .toolbar-scroll{
+    flex:1 1 auto; min-height:0; min-width:0;
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+    padding:14px 10px; overflow-y:auto;
+  }
+  .tool-group{ display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; }
+  .tool-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-dim); }
+  .size-value{ font-size:9px; font-variant-numeric:tabular-nums; color:var(--ink-dim); text-align:center; }
+  .custom-color-btn{
+    width:40px;height:28px;border-radius:7px;border:1px solid var(--line);
+    padding:2px; background:var(--panel-2); display:flex; align-items:center; justify-content:center;
+  }
+  .custom-color-swatch{ width:100%; height:100%; border-radius:5px; display:block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+  .size-btn{ width:40px; height:36px; flex-direction:column; gap:1px; }
+  .size-dot-wrap{ width:100%; height:20px; display:flex; align-items:center; justify-content:center; }
+  .size-dot{ display:inline-block; border-radius:50%; background:var(--ink); }
+
+  /* ---------- Popovers ---------- */
+  .color-popover{
+    position:fixed; top:0; left:0; z-index:999; width:230px;
+    max-height:min(520px, 82vh); overflow-y:auto;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:12px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:9px;
+  }
+  .size-popover{ width:210px; }
+  .popover-section{ display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--line); padding-top:9px; }
+  .popover-section-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-dim); }
+  .popover-row{ display:flex; align-items:center; gap:8px; }
+  .popover-row-between{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .popover-preview{ width:26px; height:26px; border-radius:7px; border:1px solid var(--line); flex:0 0 auto; }
+  .hex-input{
+    flex:1 1 auto; min-width:0; background:var(--panel-2); border:1px solid var(--line); border-radius:7px;
+    padding:6px 8px; font-size:12px; letter-spacing:.02em; color:var(--ink); text-transform:uppercase;
+  }
+  .native-color{ width:100%; height:34px; padding:0; border:1px solid var(--line); border-radius:8px; background:var(--panel-2); cursor:pointer; }
+  .popover-palette{ display:grid; grid-template-columns:repeat(6,1fr); gap:5px; }
+  .palette-swatch{ width:100%; aspect-ratio:1; border-radius:5px; border:1.5px solid var(--line); padding:0; }
+  .palette-swatch[aria-pressed="true"]{ border-color:var(--ink); box-shadow:0 0 0 1px var(--ink); }
+  .setting-sub{ font-size:12px; font-weight:600; color:var(--ink); }
+  .setting-note{ font-size:12px; font-weight:400; color:var(--ink-dim); line-height:1.35; }
+  .fps-number-input{
+    width:56px; text-align:center; font-size:12px; border:1px solid var(--line); border-radius:6px;
+    background:var(--panel-2); color:var(--ink); padding:4px 2px;
+  }
+  .size-input-wrap{ display:inline-flex; align-items:center; gap:4px; }
+  .size-popover .fps-number-input{ width:58px; }
+  .size-popover input[type=range]{ width:100%; }
+
+  .layer-menu{
+    position:fixed; top:0; left:0; z-index:1000; min-width:170px;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:5px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .layer-menu-item{
+    display:flex; align-items:center; gap:7px; padding:7px 9px; font-size:12px; font-weight:500;
+    background:transparent; border:none; border-radius:6px; color:var(--ink); text-align:left;
+  }
+  .layer-menu-item:hover{ background:var(--panel-2); }
+  .layer-menu-divider{ height:1px; background:var(--line); margin:3px 2px; }
+  .layer-menu-check{
+    width:14px; height:14px; border-radius:4px; border:1.5px solid var(--line); flex:0 0 auto;
+    display:inline-flex; align-items:center; justify-content:center; font-size:10px; line-height:1; color:var(--accent-2-ink);
+  }
+  .layer-menu-item[aria-checked="true"] .layer-menu-check{ background:var(--accent-2); border-color:var(--accent-2); }
+  .layer-menu-item[aria-checked="true"] .layer-menu-check::after{ content:'✓'; }
+
+  .export-popover{
+    position:fixed; top:0; left:0; z-index:999; width:260px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:8px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .export-popover-title{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-dim); padding:4px 6px 2px; }
+  .export-option{
+    display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; text-align:left;
+    padding:8px 9px; border-radius:9px; border:1px solid transparent; background:transparent; color:var(--ink);
+  }
+  .export-option:hover{ background:var(--panel-2); border-color:var(--line); }
+  .export-option-name{ font-size:13px; font-weight:700; }
+  .export-option-desc{ font-size:11px; color:var(--ink-dim); }
+  .export-popover-divider{ height:1px; background:var(--line); margin:2px 4px; }
+
+  /* ---------- Stage ---------- */
+  .stage-wrap{
+    grid-area:stage; position:relative; display:flex; align-items:center; justify-content:center;
+    padding:18px; overflow:hidden; min-width:0; min-height:0;
+  }
+  .canvas-stage{
+    position:relative; margin:0 auto; border-radius:10px; box-shadow:var(--shadow); overflow:hidden;
+    background-color:var(--panel);
+    background-image:
+      linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%);
+    background-size:22px 22px;
+    background-position:0 0, 0 11px, 11px -11px, -11px 0px;
+  }
+  .canvas-stage.solid-bg{ background-image:none; }
+  .canvas-stage canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; cursor:crosshair; }
+  .frame-guide{
+    position:absolute; left:18.75%; top:22.222%; width:62.5%; height:55.556%;
+    pointer-events:none; border:1.5px solid rgba(0,0,0,.35); box-shadow:0 0 0 9999px rgba(0,0,0,.16); z-index:5;
+  }
+  @media (prefers-color-scheme: dark){
+    .frame-guide{ border-color:rgba(255,255,255,.4); box-shadow:0 0 0 9999px rgba(0,0,0,.4); }
+  }
+  .stage-hint{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:6; pointer-events:none;
+    background:var(--panel); border:1px solid var(--line); color:var(--ink-dim);
+    padding:8px 14px; border-radius:999px; font-size:13px; box-shadow:var(--shadow); white-space:nowrap;
+  }
+
+  /* ---------- Inspector ---------- */
+  .inspector{
+    grid-area:inspector; background:var(--panel); border-left:1px solid var(--line);
+    min-width:0; min-height:0; overflow-y:auto; padding:0 12px 12px; display:flex; flex-direction:column; gap:12px;
+  }
+  .insp-head{ position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; margin:0 -12px; padding:12px 12px 8px; background:var(--panel); }
+  .popover-tabs{ display:flex; gap:6px; }
+  .tab-btn{
+    flex:1; padding:7px 0; border-radius:8px; border:1px solid var(--line);
+    background:var(--panel-2); font-size:12px; font-weight:600; color:var(--ink-dim);
+  }
+  .tab-btn[aria-selected="true"]{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .pane{ display:flex; flex-direction:column; gap:12px; }
+  .ident{ display:flex; gap:10px; align-items:center; }
+  .ident-fields{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:5px; }
+  .text-input{
+    width:100%; font-size:13px; color:var(--ink); background:var(--panel-2); border:1px solid var(--line);
+    border-radius:7px; padding:7px 9px;
+  }
+  .prev-canvas{ border-radius:8px; border:1px solid var(--line); display:block; }
+  #prevStrip{ width:100%; height:auto; }
+  #prevTip{ width:88px; height:88px; flex:0 0 auto; }
+  .be-row{ display:grid; grid-template-columns:92px 1fr 68px; align-items:center; gap:8px; font-size:12px; color:var(--ink-dim); }
+  .be-row input[type=range]{ width:100%; min-width:0; }
+  .num-wrap{ display:flex; align-items:center; justify-content:flex-end; gap:2px; }
+  .num-wrap input{
+    width:46px; text-align:center; font-size:11.5px; border:1px solid var(--line); border-radius:6px;
+    background:var(--panel-2); color:var(--ink); padding:3px 2px; -moz-appearance:textfield; appearance:textfield;
+  }
+  .num-wrap input::-webkit-outer-spin-button, .num-wrap input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .num-wrap i{ font-style:normal; font-size:11px; color:var(--ink-dim); width:12px; }
+  .rows{ display:flex; flex-direction:column; gap:8px; }
+  .switch{ position:relative; display:inline-block; width:38px; height:22px; flex:0 0 auto; }
+  .switch input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; z-index:1; }
+  .switch-track{ position:absolute; inset:0; background:var(--panel-2); border:1px solid var(--line); border-radius:20px; transition:background .15s ease, border-color .15s ease; }
+  .switch-thumb{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.35); transition:transform .15s ease; }
+  .switch input:checked + .switch-track{ background:var(--accent-2); border-color:transparent; }
+  .switch input:checked + .switch-track .switch-thumb{ transform:translateX(16px); }
+  .tex-row{ display:flex; gap:10px; align-items:flex-start; }
+  .tex-edit{ image-rendering:pixelated; image-rendering:crisp-edges; touch-action:none; cursor:crosshair; background:#000; flex:0 0 auto; }
+  .tex-side{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; min-width:0; }
+  #texTiled{ width:96px; height:96px; image-rendering:pixelated; image-rendering:crisp-edges; background:#000; }
+  .tex-tools{ display:flex; flex-wrap:wrap; gap:6px; }
+  .switch-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:var(--ink-dim); }
+  .json-area{
+    width:100%; min-height:300px; flex:1 1 auto; resize:vertical;
+    font:12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; tab-size:2;
+    background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:9px; color:var(--ink);
+  }
+  .json-actions{ display:flex; gap:8px; }
+  .json-actions .btn{ flex:1; justify-content:center; }
+  .msg-err{ color:var(--danger); }
+
+  /* ---------- Filmstrip (brush library) ---------- */
+  .filmstrip-wrap{ grid-area:filmstrip; min-width:0; background:var(--panel); border-top:1px solid var(--line); padding:5px 16px 6px; }
+  .tl-tools{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px; margin:0 0 5px; }
+  .tl-btn{
+    display:inline-flex; align-items:center; gap:5px; font:inherit; font-size:11px; font-weight:600;
+    padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink); cursor:pointer;
+  }
+  .tl-btn:hover{ border-color:var(--accent); }
+  .tl-btn:disabled{ opacity:.4; pointer-events:none; }
+  .tl-btn svg{ flex:0 0 auto; }
+  .filmstrip-viewport{
+    position:relative; display:flex; align-items:center; gap:4px; max-width:min(100%, 640px); min-width:0;
+    margin:0 auto; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; touch-action:pan-x;
+    -webkit-overflow-scrolling:touch; padding:0 4px;
+  }
+  .filmstrip{ display:flex; gap:9px; padding-bottom:2px; flex:0 0 auto; }
+  .brush-cell{
+    position:relative; flex:0 0 auto; width:104px; height:58px; border-radius:6px; overflow:hidden; cursor:pointer;
+    border:2px solid var(--line); background:#fff; padding:0;
+  }
+  .brush-cell.active{ border-color:var(--accent); }
+  .brush-cell canvas{ width:100%; height:100%; display:block; }
+  .brush-name{
+    position:absolute; left:3px; bottom:2px; max-width:calc(100% - 6px); font-size:9px;
+    background:rgba(0,0,0,.6); color:#fff; padding:1px 4px; border-radius:3px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .add-frame-btn{
+    flex:0 0 auto; width:58px; height:58px; border-radius:6px; border:2px dashed var(--line);
+    background:transparent; color:var(--ink-dim); font-size:22px; display:flex; align-items:center; justify-content:center;
+  }
+  .add-frame-btn:hover{ border-color:var(--accent); color:var(--accent); }
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position:fixed; left:50%; bottom:86px; transform:translate(-50%, 12px); z-index:1300;
+    max-width:min(420px, calc(100vw - 24px)); background:var(--ink); color:var(--bg); font-size:13px; line-height:1.4;
+    padding:10px 14px; border-radius:10px; box-shadow:var(--shadow);
+    opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  /* ---------- Narrow screens ---------- */
+  @media (max-width: 860px){
+    .app{
+      height:auto; min-height:100dvh;
+      grid-template-columns:1fr;
+      grid-template-rows:auto auto auto auto auto;
+      grid-template-areas: "header" "toolbar" "stage" "filmstrip" "inspector";
+    }
+    .toolbar{ flex-direction:row; align-items:center; border-right:none; border-bottom:1px solid var(--line); }
+    .toolbar-fixed{ flex-direction:row; align-items:center; padding:8px 10px; border-bottom:none; border-right:1px solid var(--line); }
+    .toolbar-scroll{ flex-direction:row; align-items:center; justify-content:flex-start; overflow-x:auto; overflow-y:hidden; padding:8px 10px; gap:10px; }
+    .toolbar-scroll::-webkit-scrollbar{ display:none; }
+    .tool-group{ width:auto; flex-direction:row; align-items:center; gap:5px; flex:0 0 auto; }
+    .tool-group .tool-label{ display:none; }
+    .toolbar .btn-icon{ width:34px; height:34px; flex:0 0 auto; }
+    .toolbar .tool-group + .tool-group{ padding-left:10px; border-left:1px solid var(--line); }
+    .size-btn{ width:34px; height:34px; flex-direction:row; gap:0; }
+    .size-btn .size-dot-wrap{ display:none; }
+    .size-btn .size-value{ font-size:11px; }
+    .stage-wrap{ padding:10px; }
+    .inspector{ border-left:none; border-top:1px solid var(--line); overflow:visible; padding-bottom:calc(130px + env(safe-area-inset-bottom, 0px)); }   /* room to scroll the last controls clear of the phone's bottom bar / home indicator */
+    html, body{ scroll-padding-top:64px; scroll-padding-bottom:120px; }   /* keep scrolled-to controls out from under the sticky header and the bottom bar */
+    .brand-tag{ display:none; }
+    .app-header{ padding:8px 10px; gap:8px; }
+    .header-scroll{ gap:6px; flex-wrap:nowrap; overflow-x:auto; min-width:0; }
+    .header-scroll::-webkit-scrollbar{ display:none; }
+    .header-scroll .group{ gap:4px; flex:0 0 auto; }
+    .brand-actions{ gap:3px; margin-left:0; }
+    .brand-actions .btn-icon{ width:32px; height:32px; }
+    .app-header .brand-name{ font-size:13px; }
+    .app-header .brand-mark{ width:26px; height:26px; }
+    .app-header .divider{ display:none; }
+    #toast{ bottom:24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ================= Header ================= -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/></svg></div>
+      <div>
+        <div class="brand-name">Brush Maker</div>
+        <div class="brand-tag">custom&nbsp;brush&nbsp;json</div>
+      </div>
+    </div>
+
+    <div class="group brand-actions">
+      <button class="btn btn-icon" id="newBtn" aria-expanded="false" title="New brush" aria-label="New brush"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/><path d="M12 12v6M9 15h6"/></svg></button>
+      <button class="btn btn-icon" id="importBtn" title="Import brush .json" aria-label="Import brush json"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg></button>
+      <input type="file" id="importFile" accept=".json,application/json" multiple style="display:none">
+      <button class="btn btn-icon btn-primary" id="exportBtn" aria-expanded="false" title="Export brush json" aria-label="Export brush json"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M4 19h16"/></svg></button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="header-scroll">
+      <div class="group">
+        <button class="btn btn-icon" id="prevBrushBtn" title="Previous brush" aria-label="Previous brush"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6 10 12l10 6z"/></svg></button>
+        <span class="frame-counter" id="brushCounter">Brush 1 / 1</span>
+        <button class="btn btn-icon" id="nextBrushBtn" title="Next brush" aria-label="Next brush"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6l10 6-10 6z"/></svg></button>
+      </div>
+      <div class="group">
+        <button class="btn" id="copyBtn" title="Copy this brush's JSON"><span class="hdr-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></span><span class="hdr-label">Copy JSON</span></button>
+        <button class="btn btn-primary" id="downloadBtn" title="Download this brush as .json"><span class="hdr-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg></span><span class="hdr-label">Download .json</span></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= Toolbar ================= -->
+  <aside class="toolbar">
+    <div class="toolbar-fixed">
+      <div class="tool-group">
+        <span class="tool-label">History</span>
+        <button class="btn btn-icon" id="undoBtn" title="Undo last stroke (Ctrl+Z)" aria-label="Undo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-1"/></svg></button>
+        <button class="btn btn-icon" id="redoBtn" title="Redo (Ctrl+Y)" aria-label="Redo"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 7 5 5-5 5"/><path d="M20 12H10a6 6 0 0 0 0 12h1"/></svg></button>
+      </div>
+    </div>
+
+    <div class="toolbar-scroll">
+      <div class="tool-group">
+        <span class="tool-label">Tool</span>
+        <button class="btn btn-icon" id="penBtn" aria-pressed="true" title="Pen (P)" aria-label="Pen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+        <button class="btn btn-icon" id="eraserBtn" aria-pressed="false" title="Eraser (E) — uses the same brush" aria-label="Eraser"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"/><path d="m5.082 11.09 8.828 8.828"/></svg></button>
+      </div>
+
+      <div class="tool-group">
+        <span class="tool-label">Color</span>
+        <button type="button" id="colorBtn" class="custom-color-btn" aria-haspopup="true" aria-expanded="false" aria-label="Test color"><span class="custom-color-swatch" id="colorSwatch"></span></button>
+      </div>
+
+      <div class="tool-group">
+        <span class="tool-label">Size</span>
+        <button type="button" id="sizeBtn" class="custom-color-btn size-btn" aria-haspopup="true" aria-expanded="false" aria-label="Test brush size">
+          <span class="size-dot-wrap"><span class="size-dot" id="sizeDot"></span></span>
+          <span class="size-value" id="sizeValue">14px</span>
+        </button>
+      </div>
+
+      <div class="tool-group">
+        <span class="tool-label">Canvas</span>
+        <button class="btn btn-icon" id="bgBtn" aria-haspopup="true" aria-expanded="false" title="Canvas background &amp; frame guide" aria-label="Canvas background"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/></svg></button>
+        <button class="btn btn-icon" id="clearBtn" title="Clear the test canvas" aria-label="Clear canvas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 8 8 8M16 8l-8 8"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= Stage ================= -->
+  <main class="stage-wrap" id="stageWrap">
+    <div class="canvas-stage" id="stage">
+      <canvas id="drawCanvas" width="1536" height="972"></canvas>
+      <div class="frame-guide" id="frameGuide"></div>
+      <div class="stage-hint" id="stageHint">Draw here to test the brush</div>
+    </div>
+  </main>
+
+  <!-- ================= Inspector ================= -->
+  <aside class="inspector" id="inspector">
+    <div class="insp-head">
+      <div class="popover-tabs" role="tablist" style="flex:1 1 auto;">
+        <button type="button" class="tab-btn" id="tabBrush" role="tab" aria-selected="true">Brush</button>
+        <button type="button" class="tab-btn" id="tabJson" role="tab" aria-selected="false">JSON</button>
+      </div>
+      <button type="button" class="btn" id="resetBtn" title="Reset this brush to how it started" style="padding:7px 12px; font-size:12px; font-weight:600;">Reset</button>
+    </div>
+
+    <div class="pane" id="paneBrush">
+      <div class="ident">
+        <canvas class="prev-canvas" id="prevTip" width="88" height="88" title="The brush tip (one stamp)"></canvas>
+        <div class="ident-fields">
+          <span class="setting-sub">Name</span>
+          <input type="text" class="text-input" id="nameInput" maxlength="18" autocomplete="off" spellcheck="false" aria-label="Brush name">
+          <span class="setting-note" id="nameCount">0 / 18</span>
+        </div>
+      </div>
+
+      <canvas class="prev-canvas" id="prevStrip" width="340" height="110" title="Sample stroke (full opacity)"></canvas>
+
+      <div class="popover-section">
+        <span class="popover-section-label">Tip</span>
+        <div class="rows" id="rowsTip"></div>
+      </div>
+
+      <div class="popover-section">
+        <span class="popover-section-label">Variation</span>
+        <div class="rows" id="rowsVar"></div>
+      </div>
+
+      <div class="popover-section">
+        <div class="popover-row-between">
+          <span class="popover-section-label">Grain texture</span>
+          <label class="switch"><input type="checkbox" id="grainChk" aria-label="Grain texture"><span class="switch-track"><span class="switch-thumb"></span></span></label>
+        </div>
+        <div class="rows" id="rowsGrain"></div>
+      </div>
+
+      <div class="popover-section">
+        <div class="popover-row-between">
+          <span class="popover-section-label">Custom texture</span>
+          <label class="switch"><input type="checkbox" id="texChk" aria-label="Custom texture"><span class="switch-track"><span class="switch-thumb"></span></span></label>
+        </div>
+        <div class="setting-note" id="texNote">Paint or upload your own pattern. It replaces the random grain.</div>
+        <div class="rows" id="texBody" hidden>
+          <div class="tex-row">
+            <canvas class="prev-canvas tex-edit" id="texEdit" width="64" height="64" title="White paints, black leaves gaps. Painting wraps around the edges so the tile repeats seamlessly."></canvas>
+            <div class="tex-side">
+              <canvas class="prev-canvas" id="texTiled" width="96" height="96"></canvas>
+              <span class="setting-note" id="texSideNote">repeats like this</span>
+            </div>
+          </div>
+          <div class="setting-note" id="texHint">White paints, black leaves gaps. Drawing wraps around the edges.</div>
+          <div class="tex-tools" id="texPenTools">
+            <button type="button" class="tl-btn" id="texPaintBtn" aria-pressed="true">Paint</button>
+            <button type="button" class="tl-btn" id="texEraseBtn" aria-pressed="false">Erase</button>
+            <button type="button" class="tl-btn" id="texUndoBtn" disabled>Undo</button>
+          </div>
+          <div class="rows" id="texPenRows"></div>
+          <div class="popover-section-label">Fill with</div>
+          <div class="tex-tools">
+            <button type="button" class="tl-btn" data-pat="noise">Noise</button>
+            <button type="button" class="tl-btn" data-pat="hatch">Hatch</button>
+            <button type="button" class="tl-btn" data-pat="lines">Lines</button>
+            <button type="button" class="tl-btn" data-pat="dots">Dots</button>
+            <button type="button" class="tl-btn" data-pat="black">Clear</button>
+            <button type="button" class="tl-btn" data-pat="white">White</button>
+            <button type="button" class="tl-btn" data-pat="flip">Flip</button>
+            <button type="button" class="tl-btn" id="texUploadBtn">Upload image…</button>
+          </div>
+          <input type="file" id="texFile" accept="image/*" style="display:none">
+          <div class="popover-section-label">Tile resolution</div>
+          <div class="tex-tools" id="texRes">
+            <button type="button" class="tl-btn" data-res="32" aria-pressed="false">32</button>
+            <button type="button" class="tl-btn" data-res="64" aria-pressed="true">64</button>
+            <button type="button" class="tl-btn" data-res="128" aria-pressed="false">128</button>
+          </div>
+          <label class="switch-row" title="On: the pattern tiles across the tip. Off: one copy is stretched over the whole tip and becomes its shape.">
+            <span>Repeat pattern</span>
+            <span class="switch"><input type="checkbox" id="texRepeat" aria-label="Repeat pattern" checked><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          </label>
+          <div class="rows" id="texRows"></div>
+          <label class="switch-row" title="Normally white paints. Turn on to make black paint instead.">
+            <span>Black paints instead</span>
+            <span class="switch"><input type="checkbox" id="texInvert" aria-label="Black paints instead"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="pane" id="paneJson" hidden>
+      <div class="setting-note">This is exactly what gets exported. Edit it and press Apply, or paste a brush in.</div>
+      <textarea class="json-area" id="jsonArea" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Brush JSON"></textarea>
+      <div class="setting-note" id="jsonMsg">&nbsp;</div>
+      <div class="json-actions">
+        <button type="button" class="btn" id="jsonCopy">Copy</button>
+        <button type="button" class="btn btn-primary" id="jsonApply" disabled>Apply</button>
+      </div>
+      <div class="setting-note">In Scribble Reel: tap the pen, then <b>+ Import brush (.json)</b>.</div>
+    </div>
+  </aside>
+
+  <!-- ================= Filmstrip (brush library) ================= -->
+  <section class="filmstrip-wrap" aria-label="Brush library">
+    <div class="tl-tools">
+      <button type="button" class="tl-btn" id="dupBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>Duplicate</button>
+      <button type="button" class="tl-btn" id="moveLeftBtn" title="Move earlier"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Move</button>
+      <button type="button" class="tl-btn" id="moveRightBtn" title="Move later">Move<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      <button type="button" class="tl-btn" id="delBtn" style="color:var(--danger)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>Delete</button>
+    </div>
+    <div class="filmstrip-viewport">
+      <div class="filmstrip" id="filmstrip"></div>
+    </div>
+  </section>
+</div>
+
+<!-- ================= Popovers ================= -->
+<div class="color-popover" id="colorPop" role="dialog" aria-label="Test color" hidden>
+  <div class="popover-row">
+    <span class="popover-preview" id="colPrev"></span>
+    <input type="text" id="hexIn" class="hex-input" maxlength="7" aria-label="Hex color value" value="#18161C">
+  </div>
+  <input type="color" id="colNative" class="native-color" aria-label="Pick a color" value="#18161c">
+  <div class="popover-section">
+    <span class="popover-section-label">Presets</span>
+    <div class="popover-palette" id="palGrid"></div>
+  </div>
+</div>
+
+<div class="color-popover size-popover" id="sizePop" role="dialog" aria-label="Test size and opacity" hidden>
+  <div class="popover-row-between">
+    <span class="setting-sub">Brush size</span>
+    <span class="size-input-wrap"><input type="number" id="sizeNum" class="fps-number-input" min="1" max="500" step="1" inputmode="numeric" aria-label="Brush size in pixels"><span class="setting-note">px</span></span>
+  </div>
+  <input type="range" id="sizeRange" min="0" max="1000" step="1" aria-label="Brush size">
+  <div class="popover-row-between" style="margin-top:2px;">
+    <span class="setting-sub">Opacity</span>
+    <span class="size-input-wrap"><input type="number" id="alphaNum" class="fps-number-input" min="1" max="100" step="1" inputmode="numeric" aria-label="Opacity percent"><span class="setting-note">%</span></span>
+  </div>
+  <input type="range" id="alphaRange" min="1" max="100" step="1" aria-label="Opacity">
+  <div class="setting-note">The test canvas is 1536 × 972 px, so sizes match a default Scribble Reel canvas.</div>
+</div>
+
+<div class="layer-menu" id="bgMenu" role="menu" aria-label="Canvas background" hidden>
+  <button type="button" class="layer-menu-item" data-bg="checker" role="menuitemradio" aria-checked="true"><span class="layer-menu-check"></span>Transparent</button>
+  <button type="button" class="layer-menu-item" data-bg="white" role="menuitemradio" aria-checked="false"><span class="layer-menu-check"></span>White</button>
+  <button type="button" class="layer-menu-item" data-bg="paper" role="menuitemradio" aria-checked="false"><span class="layer-menu-check"></span>Paper</button>
+  <button type="button" class="layer-menu-item" data-bg="grey" role="menuitemradio" aria-checked="false"><span class="layer-menu-check"></span>Grey</button>
+  <button type="button" class="layer-menu-item" data-bg="black" role="menuitemradio" aria-checked="false"><span class="layer-menu-check"></span>Black</button>
+  <div class="layer-menu-divider"></div>
+  <button type="button" class="layer-menu-item" id="guideItem" role="menuitemcheckbox" aria-checked="true"><span class="layer-menu-check"></span>Frame guide</button>
+</div>
+
+<div class="layer-menu" id="newMenu" role="menu" aria-label="New brush" hidden>
+  <button type="button" class="layer-menu-item" data-new="blank">Blank brush</button>
+  <button type="button" class="layer-menu-item" data-new="copy">Copy of this brush</button>
+  <div class="layer-menu-divider"></div>
+  <div class="export-popover-title">Start from a preset</div>
+  <button type="button" class="layer-menu-item" data-new="pencil">Pencil</button>
+  <button type="button" class="layer-menu-item" data-new="marker">Marker</button>
+  <button type="button" class="layer-menu-item" data-new="chalk">Chalk</button>
+  <button type="button" class="layer-menu-item" data-new="airbrush">Airbrush</button>
+</div>
+
+<div class="export-popover" id="exportPop" role="dialog" aria-label="Export" hidden>
+  <div class="export-popover-title">Export</div>
+  <button type="button" class="export-option" id="exOne">
+    <span class="export-option-name">Download this brush</span>
+    <span class="export-option-desc">One .json file — import it from the pen menu in Scribble Reel</span>
+  </button>
+  <button type="button" class="export-option" id="exAll">
+    <span class="export-option-name">Download all brushes</span>
+    <span class="export-option-desc" id="exAllDesc">Every brush in the library, in one .json file</span>
+  </button>
+  <div class="export-popover-divider"></div>
+  <button type="button" class="export-option" id="exCopyOne">
+    <span class="export-option-name">Copy this brush</span>
+    <span class="export-option-desc">JSON to your clipboard</span>
+  </button>
+  <button type="button" class="export-option" id="exCopyAll">
+    <span class="export-option-name">Copy all brushes</span>
+    <span class="export-option-desc">A JSON list to your clipboard</span>
+  </button>
+</div>
+
+<div class="modal-overlay" id="confirmModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+    <h3 class="modal-title" id="cmTitle"></h3>
+    <p class="modal-desc" id="cmDesc"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="cmCancel">Cancel</button>
+      <button type="button" class="btn btn-danger" id="cmOk">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+  function $(id){ return document.getElementById(id); }
+
+  var W = 1536, H = 972;   // same drawing surface as Scribble Reel (960x540 frame + bleed)
+
+  /* =====================================================================
+     Brush data — the same fields and limits Scribble Reel's importer uses
+     ===================================================================== */
+  var KEYS = ['hardness', 'spacing', 'flow', 'scale', 'aspect', 'angle', 'sizeJitter', 'alphaJitter', 'angleJitter', 'scatter'];
+  var GRAIN0 = { cell: 1, contrast: 2, threshold: 0.4 };
+  var PRESETS = {
+    blank:    { name: 'New brush' },
+    pencil:   { name: 'Pencil',   hardness: 0.85, spacing: 0.1,  flow: 0.42, aspect: 1,   angle: 0,   scale: 1,    sizeJitter: 0.06, alphaJitter: 0.25, angleJitter: 0,   scatter: 0.12, grain: { cell: 1, contrast: 2.2, threshold: 0.35 } },
+    marker:   { name: 'Marker',   hardness: 1,    spacing: 0.07, flow: 0.3,  aspect: 0.5, angle: -45, scale: 1.25, sizeJitter: 0,    alphaJitter: 0,    angleJitter: 0,   scatter: 0,    grain: null },
+    chalk:    { name: 'Chalk',    hardness: 0.75, spacing: 0.16, flow: 0.85, aspect: 1,   angle: 0,   scale: 1.3,  sizeJitter: 0.15, alphaJitter: 0.35, angleJitter: 360, scatter: 0.2,  grain: { cell: 2, contrast: 3.5, threshold: 0.5 } },
+    airbrush: { name: 'Airbrush', hardness: 0,    spacing: 0.08, flow: 0.1,  aspect: 1,   angle: 0,   scale: 1.6,  sizeJitter: 0,    alphaJitter: 0,    angleJitter: 0,   scatter: 0,    grain: null }
+  };
+
+  function bnum(v, d, lo, hi){ v = parseFloat(v); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; }
+  var uidN = 0;
+  function clean(o){   // same clamping as Scribble Reel's cleanBrush
+    if(!o || typeof o !== 'object' || Array.isArray(o)) return null;
+    var g = (o.grain && typeof o.grain === 'object') ? { cell: Math.round(bnum(o.grain.cell, 1, 1, 8)), contrast: bnum(o.grain.contrast, 2, 0.5, 8), threshold: bnum(o.grain.threshold, 0.4, 0, 1) } : null;
+    var b = { uid: 'b' + (++uidN), name: String(o.name || 'Brush').slice(0, 18),
+      hardness: bnum(o.hardness, 0.7, 0, 1), spacing: bnum(o.spacing, 0.12, 0.03, 1), flow: bnum(o.flow, 0.6, 0.02, 1), aspect: bnum(o.aspect, 1, 0.1, 1), angle: bnum(o.angle, 0, -180, 180),
+      scale: bnum(o.scale, 1, 0.5, 3), sizeJitter: bnum(o.sizeJitter, 0, 0, 0.9), alphaJitter: bnum(o.alphaJitter, 0, 0, 0.9), angleJitter: bnum(o.angleJitter, 0, 0, 360), scatter: bnum(o.scatter, 0, 0, 2),
+      grain: g, lastGrain: g ? Object.assign({}, g) : null, texture: null, lastTexture: null };
+    var tx = o.texture;
+    if(tx && typeof tx === 'object' && typeof tx.src === 'string' && TEX_RE.test(tx.src) && tx.src.length <= 200000){
+      b.texture = { canvas: blankTexCanvas(64, 64), scale: bnum(tx.scale, 1, 0.25, 4), invert: !!tx.invert, repeat: tx.repeat !== false, src: tx.src, ver: 1, hist: [] };
+      if(b.grain){ b.lastGrain = Object.assign({}, b.grain); b.grain = null; }   // a custom texture replaces the grain
+      decodeTexture(b.texture);
+    }
+    b.base = JSON.stringify(serialize(b));   // what "Reset this brush" goes back to
+    return b;
+  }
+  var TEX_RE = /^data:image\/(png|jpeg|webp|gif);base64,/i;
+  function blankTexCanvas(w, h){ var c = document.createElement('canvas'); c.width = w; c.height = h; var x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, w, h); return c; }
+  function getSrc(t){ return t.src || (t.src = t.canvas.toDataURL('image/png')); }
+  function decodeTexture(t){   // turn an imported image back into the editable grey tile (white = paint)
+    var img = new Image();
+    img.onload = function(){
+      var iw = img.naturalWidth || 1, ih = img.naturalHeight || 1, m = Math.min(1, 128 / Math.max(iw, ih));
+      var w = Math.max(2, Math.round(iw * m)), h = Math.max(2, Math.round(ih * m)), c = t.canvas;
+      c.width = w; c.height = h;
+      var x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);
+      var im = x.getImageData(0, 0, w, h), d = im.data;
+      for(var i = 0; i < d.length; i += 4){ var g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = g; d[i + 3] = 255; }
+      x.putImageData(im, 0, 0);
+      t.ver++; texLoaded(t);
+    };
+    img.src = t.src;
+  }
+  function texLoaded(t){
+    var i = -1; brushes.forEach(function(b, k){ if(b.texture === t) i = k; });
+    if(i < 0) return;
+    EL.forget(brushes[i].uid);
+    if(i === active){ renderStrip(); renderTip(); syncTexUI(); }
+    renderThumb(i);
+  }
+  function r3(v){ return Math.round(v * 1000) / 1000; }
+  function serialize(b){
+    var o = { name: b.name };
+    KEYS.forEach(function(k){ o[k] = r3(b[k]); });
+    o.grain = b.grain ? { cell: b.grain.cell, contrast: r3(b.grain.contrast), threshold: r3(b.grain.threshold) } : null;
+    if(b.texture) o.texture = { src: getSrc(b.texture), scale: r3(b.texture.scale), invert: !!b.texture.invert, repeat: b.texture.repeat !== false };
+    return o;
+  }
+
+  /* =====================================================================
+     Brush engine — a straight port of Scribble Reel's (stamps along the
+     stroke, optional grain, jitter, scatter). Takes a ctx so it can draw
+     to the test canvas, the previews and the thumbnails.
+     ===================================================================== */
+  function makeEngine(){
+    var E = { rng: Math.random }, stampCache = {}, grainCache = {}, texCache = {};
+    E.clear = function(){ stampCache = {}; grainCache = {}; };
+    E.forget = function(id){ stampCache = {}; delete grainCache[id]; };
+    function grainTile(br){
+      if(grainCache[br.uid]) return grainCache[br.uid];
+      var g = br.grain, cell = Math.max(1, g.cell | 0), n = Math.ceil(128 / cell);
+      var sm = document.createElement('canvas'); sm.width = sm.height = n;
+      var sc = sm.getContext('2d'), im = sc.createImageData(n, n);
+      for(var i = 0; i < n * n; i++) im.data[i * 4 + 3] = Math.max(0, Math.min(255, ((E.rng() - g.threshold) * g.contrast + 0.5) * 255));
+      sc.putImageData(im, 0, 0);
+      var t = document.createElement('canvas'); t.width = t.height = 128;
+      var tc = t.getContext('2d'); tc.imageSmoothingEnabled = false; tc.drawImage(sm, 0, 0, 128, 128);
+      return (grainCache[br.uid] = t);
+    }
+    // custom texture -> an alpha tile (white = paint, times the image's own alpha; invert flips it), same maths as Scribble Reel
+    function texTile(br){
+      var t = br.texture, c = texCache[br.uid];
+      if(c && c.ver === t.ver && c.scale === t.scale && c.invert === t.invert) return c.tile;
+      var w = Math.max(2, Math.min(1024, Math.round(t.canvas.width * t.scale))), h = Math.max(2, Math.min(1024, Math.round(t.canvas.height * t.scale)));
+      var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      var x = cv.getContext('2d'); x.drawImage(t.canvas, 0, 0, w, h);
+      var im = x.getImageData(0, 0, w, h), d = im.data;
+      for(var i = 0; i < d.length; i += 4){
+        var lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255, cov = (t.invert ? 1 - lum : lum) * (d[i + 3] / 255);
+        d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = Math.round(cov * 255);
+      }
+      x.putImageData(im, 0, 0);
+      texCache[br.uid] = { ver: t.ver, scale: t.scale, invert: t.invert, tile: cv };
+      return cv;
+    }
+    E.stamps = function(br, size, color){
+      var q = size < 24 ? Math.max(1, Math.round(size)) : Math.round(size / 2) * 2, key = br.uid + '|' + q + '|' + color;
+      if(stampCache[key]) return stampCache[key];
+      if(Object.keys(stampCache).length > 60) stampCache = {};
+      var tile = br.texture ? texTile(br) : null, fit = !!(tile && br.texture.repeat === false);   // repeat off = one copy stretched over the whole tip
+      var pat = fit ? null : (tile || (br.grain ? grainTile(br) : null));
+      var D = Math.max(2, Math.ceil(q * br.scale)), out = [], nv = pat ? 6 : 1;
+      for(var v = 0; v < nv; v++){
+        var c = document.createElement('canvas'); c.width = c.height = D;
+        var x = c.getContext('2d'), r = D / 2;
+        x.translate(r, r); x.rotate(br.angle * Math.PI / 180); x.scale(1, br.aspect);
+        if(fit) x.drawImage(tile, -r, -r, D, D);   // the image itself is the tip shape (hardness doesn't apply)
+        else {
+          var gr = x.createRadialGradient(0, 0, 0, 0, 0, r);
+          gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(Math.min(0.999, br.hardness), 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          x.fillStyle = gr; x.beginPath(); x.arc(0, 0, r, 0, Math.PI * 2); x.fill();
+        }
+        x.setTransform(1, 0, 0, 1, 0, 0);
+        if(pat){
+          var ox = E.rng() * pat.width, oy = E.rng() * pat.height;
+          x.globalCompositeOperation = 'destination-in';
+          x.translate(-ox, -oy); x.fillStyle = x.createPattern(pat, 'repeat'); x.fillRect(ox, oy, D, D);
+          x.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, D, D);
+        out.push(c);
+      }
+      return (stampCache[key] = out);
+    };
+    E.dab = function(ctx, br, x, y, size, alpha, color){
+      var st = E.stamps(br, size, color), im = st[(E.rng() * st.length) | 0];
+      var dw = im.width * (1 + (E.rng() - 0.5) * 2 * br.sizeJitter);
+      if(br.scatter){ var sr = size * br.scatter; x += (E.rng() - 0.5) * sr; y += (E.rng() - 0.5) * sr; }
+      ctx.globalAlpha = Math.max(0.01, Math.min(1, alpha));
+      if(br.angleJitter){
+        ctx.save(); ctx.translate(x, y); ctx.rotate((E.rng() - 0.5) * br.angleJitter * Math.PI / 180);
+        ctx.drawImage(im, -dw / 2, -dw / 2, dw, dw); ctx.restore();
+      } else ctx.drawImage(im, x - dw / 2, y - dw / 2, dw, dw);
+    };
+    // o: { size, alpha, erase, color, run:{t} }   run.t carries the leftover distance into the next segment
+    E.segment = function(ctx, br, from, to, o){
+      var step = Math.max(0.7, o.size * br.spacing), t = o.run.t;
+      var dx = to.x - from.x, dy = to.y - from.y, dist = Math.hypot(dx, dy), al = (o.erase ? 1 : o.alpha) * br.flow;
+      ctx.globalCompositeOperation = o.erase ? 'destination-out' : 'source-over';
+      if(dist === 0){
+        if(t <= 0){ E.dab(ctx, br, to.x, to.y, o.size, al, o.color); t = step; }
+        o.run.t = t;
+      } else {
+        while(t <= dist){ var k = t / dist; E.dab(ctx, br, from.x + dx * k, from.y + dy * k, o.size, al * (1 + (E.rng() - 0.5) * 2 * br.alphaJitter), o.color); t += step; }
+        o.run.t = t - dist;
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    };
+    return E;
+  }
+  var EL = makeEngine();   // live: the test canvas
+  var EP = makeEngine();   // previews: re-seeded every render so sliders don't make the jitter flicker
+  function seeded(seed){ return function(){ seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; }
+
+  /* =====================================================================
+     State
+     ===================================================================== */
+  var S = { tool: 'pen', color: '#18161C', size: 14, alpha: 1, bg: 'checker', guide: true };
+  var BG = { checker: null, white: '#FFFFFF', paper: '#F3EBDD', grey: '#8C8C93', black: '#121014' };
+  var brushes = [], active = 0, jsonDirty = false;
+  var MAX_BRUSHES = 30;
+  function cur(){ return brushes[active]; }
+
+  /* ---------- persistence (best effort) ---------- */
+  var KEY = 'brushMaker.v1';
+  var saveT = 0;
+  function saveSoon(){ clearTimeout(saveT); saveT = setTimeout(save, 300); }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify({ brushes: brushes.map(serialize), bases: brushes.map(function(b){ return b.base; }), active: active, s: S })); }catch(e){}
+  }
+  function load(){
+    try{
+      var j = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if(j && Array.isArray(j.brushes)){
+        j.brushes.slice(0, MAX_BRUSHES).forEach(function(o, i){ var b = clean(o); if(b){ if(j.bases && typeof j.bases[i] === 'string') b.base = j.bases[i]; brushes.push(b); } });
+        if(typeof j.active === 'number' && j.active >= 0 && j.active < brushes.length) active = j.active;
+        if(j.s){
+          if(/^#[0-9a-f]{6}$/i.test(j.s.color)) S.color = j.s.color.toUpperCase();
+          S.size = Math.round(bnum(j.s.size, 14, 1, 500));
+          S.alpha = bnum(j.s.alpha, 1, 0.01, 1);
+          if(j.s.bg in BG) S.bg = j.s.bg;
+          if(typeof j.s.guide === 'boolean') S.guide = j.s.guide;
+        }
+      }
+    }catch(e){}
+    if(!brushes.length){ brushes.push(clean({ name: 'My brush' })); active = 0; }
+  }
+
+  /* =====================================================================
+     Previews
+     ===================================================================== */
+  function paintBackdrop(x, w, h){
+    if(BG[S.bg]){ x.fillStyle = BG[S.bg]; x.fillRect(0, 0, w, h); return; }
+    for(var yy = 0; yy < h; yy += 10) for(var xx = 0; xx < w; xx += 10){ x.fillStyle = ((xx + yy) / 10) % 2 ? '#d6d6d6' : '#f3f3f3'; x.fillRect(xx, yy, 10, 10); }
+  }
+  function drawSample(x, br, w, h, size, margin){
+    var run = { t: 0 }, prev = null;
+    for(var i = 0; i <= 60; i++){
+      var t = i / 60, pt = { x: margin + t * (w - margin * 2), y: h / 2 + Math.sin(t * Math.PI * 2) * h * 0.26 };
+      EP.segment(x, br, prev || pt, pt, { size: size, alpha: 1, erase: false, color: S.color, run: run });
+      prev = pt;
+    }
+  }
+  function renderStrip(){
+    var br = cur(), cv = $('prevStrip'), x = cv.getContext('2d');
+    paintBackdrop(x, cv.width, cv.height);
+    EP.clear(); EP.rng = seeded(12345);
+    drawSample(x, br, cv.width, cv.height, Math.max(2, Math.min(S.size, 32)), 26);
+  }
+  function renderTip(){
+    var br = cur(), cv = $('prevTip'), x = cv.getContext('2d');
+    paintBackdrop(x, cv.width, cv.height);
+    EP.clear(); EP.rng = seeded(777);
+    var im = EP.stamps(br, 26, S.color)[0], k = Math.min(1, (cv.width - 4) / im.width), dw = im.width * k;
+    x.drawImage(im, (cv.width - dw) / 2, (cv.height - dw) / 2, dw, dw);
+  }
+  function renderThumb(i){
+    var cell = $('filmstrip').children[i]; if(!cell || !brushes[i]) return;
+    var cv = cell.querySelector('canvas'), x = cv.getContext('2d');
+    paintBackdrop(x, cv.width, cv.height);
+    EP.clear(); EP.rng = seeded(4242 + i);
+    drawSample(x, brushes[i], cv.width, cv.height, 12, 24);
+  }
+  function renderAll(){
+    renderStrip(); renderTip();
+    for(var i = 0; i < brushes.length; i++) renderThumb(i);
+  }
+
+  /* =====================================================================
+     Inspector rows
+     ===================================================================== */
+  // [key, label, min, max, step, unit, group, hint, isGrain]
+  var FIELDS = [
+    ['hardness',   'Hardness',        0,    1,   0.01, 'p', 'rowsTip', 'Soft, feathered edge at 0% — sharp edge at 100%'],
+    ['spacing',    'Spacing',         0.03, 1,   0.01, 'p', 'rowsTip', 'Gap between stamps, as a share of the brush size'],
+    ['flow',       'Flow',            0.02, 1,   0.01, 'p', 'rowsTip', 'Opacity of each stamp — low flow builds up when you go over a spot'],
+    ['scale',      'Tip size',        0.5,  3,   0.05, 'x', 'rowsTip', 'How big the stamp is compared with the brush size'],
+    ['aspect',     'Tip squash',      0.1,  1,   0.01, 'p', 'rowsTip', '100% = round tip, lower = flattened tip'],
+    ['angle',      'Tip angle',       -180, 180, 1,    '°', 'rowsTip', 'Rotates a squashed tip'],
+    ['sizeJitter', 'Size jitter',     0,    0.9, 0.01, 'p', 'rowsVar', 'Random size change on every stamp'],
+    ['alphaJitter','Opacity jitter',  0,    0.9, 0.01, 'p', 'rowsVar', 'Random opacity change on every stamp'],
+    ['angleJitter','Rotation jitter', 0,    360, 1,    '°', 'rowsVar', 'Random tip rotation on every stamp'],
+    ['scatter',    'Scatter',         0,    2,   0.01, 'p', 'rowsVar', 'Random sideways offset, as a share of the brush size'],
+    ['cell',       'Grain size',      1,    8,   1,    '',  'rowsGrain', 'Bigger = chunkier texture', 1],
+    ['contrast',   'Grain strength',  0.5,  8,   0.1,  '',  'rowsGrain', 'How hard the texture cuts into the stamp', 1],
+    ['threshold',  'Grain threshold', 0,    1,   0.01, 'p', 'rowsGrain', 'Higher = more holes in the texture', 1]
+  ];
+  var rows = [];
+  function fmt(v, u, step){
+    if(u === 'p') return String(Math.round(v * 100));
+    if(u === 'x') return (+v).toFixed(2);
+    if(u === '°') return String(Math.round(v));
+    return step >= 1 ? String(Math.round(v)) : (+v).toFixed(1);
+  }
+  function buildRows(){
+    FIELDS.forEach(function(f){
+      var key = f[0], min = f[2], max = f[3], step = f[4], u = f[5], grain = !!f[8];
+      var el = document.createElement('div'); el.className = 'be-row'; el.title = f[7];
+      el.innerHTML = '<span>' + f[1] + '</span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" aria-label="' + f[1] + '">' +
+        '<span class="num-wrap"><input type="number" inputmode="decimal" aria-label="' + f[1] + ' value"><i>' + (u === 'p' ? '%' : (u === 'x' ? '×' : u)) + '</i></span>';
+      var r = { key: key, grain: grain, min: min, max: max, step: step, u: u, el: el, rng: el.children[1], num: el.querySelector('input[type=number]') };
+      var nmin = u === 'p' ? Math.round(min * 100) : min, nmax = u === 'p' ? Math.round(max * 100) : max, nstep = u === 'p' ? 1 : (u === 'x' ? 0.01 : step);
+      r.num.min = nmin; r.num.max = nmax; r.num.step = nstep;
+      r.rng.addEventListener('input', function(){
+        var v = parseFloat(r.rng.value); r.num.value = fmt(v, u, step); setField(r, v);
+      });
+      r.num.addEventListener('change', function(){
+        var n = parseFloat(r.num.value);
+        if(!isFinite(n)){ syncRows(); return; }
+        var v = u === 'p' ? n / 100 : n;
+        v = Math.max(min, Math.min(max, v));
+        if(grain && key === 'cell') v = Math.round(v);
+        r.rng.value = v; r.num.value = fmt(v, u, step); setField(r, v);
+      });
+      rows.push(r);
+      $(f[6]).appendChild(el);
+    });
+  }
+  function setField(r, v){
+    var b = cur(), tgt = r.grain ? b.grain : b;
+    if(!tgt) return;
+    tgt[r.key] = v;
+    if(r.grain) b.lastGrain = Object.assign({}, b.grain);
+    edited();
+  }
+  function syncRows(){
+    var b = cur();
+    rows.forEach(function(r){
+      var src = r.grain ? b.grain : b;
+      if(!src) return;
+      r.rng.value = src[r.key]; r.num.value = fmt(src[r.key], r.u, r.step);
+    });
+    $('rowsGrain').hidden = !b.grain;
+    $('grainChk').checked = !!b.grain;
+  }
+
+  function syncInspector(){
+    var b = cur();
+    $('nameInput').value = b.name;
+    $('nameCount').textContent = b.name.length + ' / 18';
+    syncRows(); syncTexUI();
+    renderStrip(); renderTip();
+    refreshJson(true);
+  }
+
+  function edited(){
+    var b = cur(); EL.forget(b.uid);
+    renderStrip(); renderTip();
+    if(!thumbRaf) thumbRaf = requestAnimationFrame(function(){ thumbRaf = 0; renderThumb(active); });
+    refreshJson(false);
+    saveSoon();
+  }
+  var thumbRaf = 0;
+
+  /* ---------- name, grain toggle, reset ---------- */
+  $('nameInput').addEventListener('input', function(){
+    var b = cur(); b.name = this.value.slice(0, 18) || 'Brush';
+    $('nameCount').textContent = this.value.length + ' / 18';
+    var cell = $('filmstrip').children[active];
+    if(cell){ cell.querySelector('.brush-name').textContent = b.name; cell.title = b.name; }
+    refreshJson(false); saveSoon();
+  });
+  $('nameInput').addEventListener('blur', function(){ this.value = cur().name; $('nameCount').textContent = cur().name.length + ' / 18'; });
+  $('grainChk').addEventListener('change', function(){
+    var b = cur();
+    if(this.checked){ if(b.texture){ b.lastTexture = b.texture; b.texture = null; } b.grain = Object.assign({}, b.lastGrain || GRAIN0); }
+    else b.grain = null;
+    EL.forget(b.uid);
+    syncRows(); syncTexUI(); edited();
+  });
+  $('resetBtn').addEventListener('click', function(){
+    var b = cur();
+    if(JSON.stringify(serialize(b)) === b.base){ toast('Already at its starting values'); return; }
+    var n = clean(JSON.parse(b.base));
+    b.name = n.name; KEYS.forEach(function(k){ b[k] = n[k]; });
+    b.grain = n.grain; b.lastGrain = n.lastGrain; b.texture = n.texture; b.lastTexture = null;
+    EL.forget(b.uid); jsonDirty = false;
+    buildStrip(); syncInspector(); saveSoon();
+    toast('Brush reset to how it started');
+  });
+
+  /* =====================================================================
+     Custom texture editor — a small grey tile: white paints, black leaves gaps
+     ===================================================================== */
+  var texPen = { erase: false, size: 6, alpha: 1 }, texRows = [], texRaf = 0, texDrag = null;
+  function curTex(){ return cur().texture; }
+  var PATTERNS = {
+    noise: function(){ return Math.random(); },
+    hatch: function(x, y){ return ((x + y) % 8) < 3 ? 1 : 0; },
+    lines: function(x, y){ return (y % 8) < 3 ? 1 : 0; },
+    dots:  function(x, y){ var dx = (x % 8) - 3.5, dy = (y % 8) - 3.5; return 3 - Math.sqrt(dx * dx + dy * dy) + 0.5; },
+    black: function(){ return 0; },
+    white: function(){ return 1; }
+  };
+  function fillPattern(t, fn){
+    var c = t.canvas, x = c.getContext('2d'), im = x.createImageData(c.width, c.height), d = im.data;
+    for(var y = 0; y < c.height; y++) for(var xx = 0; xx < c.width; xx++){
+      var g = Math.round(Math.max(0, Math.min(1, fn(xx, y))) * 255), i = (y * c.width + xx) * 4;
+      d[i] = d[i + 1] = d[i + 2] = g; d[i + 3] = 255;
+    }
+    x.putImageData(im, 0, 0);
+  }
+  function newTexture(res){
+    var t = { canvas: blankTexCanvas(res, res), scale: 1, invert: false, repeat: true, src: null, ver: 1, hist: [] };
+    fillPattern(t, PATTERNS.hatch);
+    return t;
+  }
+  function texSnap(){
+    var t = curTex(); if(!t) return;
+    t.hist.push(t.canvas.getContext('2d').getImageData(0, 0, t.canvas.width, t.canvas.height));
+    if(t.hist.length > 12) t.hist.shift();
+    syncTexHist();
+  }
+  function syncTexHist(){ var t = curTex(); $('texUndoBtn').disabled = !t || !t.hist.length; }
+  function texUndo(){
+    var t = curTex(); if(!t || !t.hist.length) return;
+    var im = t.hist.pop();
+    if(im.width !== t.canvas.width || im.height !== t.canvas.height){ t.canvas.width = im.width; t.canvas.height = im.height; }
+    t.canvas.getContext('2d').putImageData(im, 0, 0);
+    texTouched(); renderTexEditor(); syncTexHist();
+  }
+  function texTouched(){   // the tile changed: refresh previews / JSON (once per frame while painting)
+    var t = curTex(); if(!t) return;
+    t.src = null; t.ver++;
+    renderTexTiled();
+    if(!texRaf) texRaf = requestAnimationFrame(function(){ texRaf = 0; edited(); });
+  }
+  function renderTexEditor(){
+    var t = curTex(); if(!t) return;
+    var te = $('texEdit'), w = t.canvas.width, h = t.canvas.height, k = 192 / Math.max(w, h);
+    if(te.width !== w || te.height !== h){ te.width = w; te.height = h; }
+    te.style.width = Math.round(w * k) + 'px'; te.style.height = Math.round(h * k) + 'px';
+    te.getContext('2d').drawImage(t.canvas, 0, 0);
+  }
+  function renderTexTiled(){
+    var t = curTex(); if(!t) return;
+    var cv = $('texTiled'), x = cv.getContext('2d'), w = t.canvas.width, h = t.canvas.height;
+    x.fillStyle = '#000'; x.fillRect(0, 0, cv.width, cv.height);
+    if(t.repeat === false){ var k = Math.min(cv.width / w, cv.height / h); x.drawImage(t.canvas, (cv.width - w * k) / 2, (cv.height - h * k) / 2, w * k, h * k); return; }
+    var sc = 32 * t.scale / Math.max(w, h);   // 1x = 32px per tile in this preview, so the scale slider visibly zooms it
+    x.save(); x.imageSmoothingEnabled = false; x.scale(sc, sc);
+    x.fillStyle = x.createPattern(t.canvas, 'repeat'); x.fillRect(0, 0, cv.width / sc, cv.height / sc);
+    x.restore();
+  }
+  function syncTexUI(){
+    var b = cur(), t = b.texture;
+    $('texChk').checked = !!t; $('texBody').hidden = !t;
+    $('grainChk').checked = !!b.grain; $('rowsGrain').hidden = !b.grain;
+    $('texNote').hidden = !!t;
+    if(!t){ syncTexHist(); return; }
+    renderTexEditor(); renderTexTiled();
+    texRows.forEach(function(r){ r.sync(); });
+    $('texInvert').checked = t.invert;
+    var rp = t.repeat !== false;
+    $('texRepeat').checked = rp; $('texRows').hidden = !rp;
+    syncTexNote();
+    $('texHint').textContent = rp ? 'White paints, black leaves gaps. Drawing wraps around the edges.' : 'White paints, black leaves gaps. This image becomes the tip shape, so Hardness has no effect.';
+    var m = Math.max(t.canvas.width, t.canvas.height);
+    Array.prototype.forEach.call($('texRes').children, function(bt){ bt.setAttribute('aria-pressed', String(+bt.dataset.res === m)); });
+    $('texPaintBtn').setAttribute('aria-pressed', String(!texPen.erase)); $('texEraseBtn').setAttribute('aria-pressed', String(texPen.erase));
+    syncTexHist();
+  }
+  function syncTexNote(){
+    var t = curTex(); if(!t) return;
+    $('texSideNote').textContent = t.repeat !== false ? 'repeats at ' + (+t.scale).toFixed(2) + '×' : 'stretched over the tip';
+  }
+  function simpleRow(host, label, min, max, step, unit, hint, get, set){
+    var el = document.createElement('div'); el.className = 'be-row'; el.title = hint;
+    el.innerHTML = '<span>' + label + '</span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" aria-label="' + label + '">' +
+      '<span class="num-wrap"><input type="number" inputmode="decimal" aria-label="' + label + ' value"><i>' + unit + '</i></span>';
+    var rng = el.children[1], num = el.querySelector('input[type=number]');
+    num.min = min; num.max = max; num.step = step;
+    function show(v){ rng.value = v; num.value = step >= 1 ? Math.round(v) : (+v).toFixed(2); }
+    rng.addEventListener('input', function(){ var v = parseFloat(rng.value); show(v); set(v); });
+    num.addEventListener('change', function(){ var n = parseFloat(num.value); if(!isFinite(n)){ show(get()); return; } n = Math.max(min, Math.min(max, n)); show(n); set(n); });
+    host.appendChild(el);
+    texRows.push({ sync: function(){ show(get()); } });
+  }
+  function buildTexUI(){
+    simpleRow($('texPenRows'), 'Pen size', 1, 24, 1, 'px', 'Pen size in tile pixels', function(){ return texPen.size; }, function(v){ texPen.size = v; });
+    simpleRow($('texPenRows'), 'Pen strength', 5, 100, 1, '%', 'Low strength paints greys — they become see-through gaps', function(){ return texPen.alpha * 100; }, function(v){ texPen.alpha = v / 100; });
+    simpleRow($('texRows'), 'Texture scale', 0.25, 4, 0.05, '×', 'How big the pattern is when stamped', function(){ var t = curTex(); return t ? t.scale : 1; }, function(v){ var t = curTex(); if(t){ t.scale = v; syncTexNote(); renderTexTiled(); edited(); } });
+    $('texChk').addEventListener('change', function(){
+      var b = cur();
+      if(this.checked){
+        if(b.grain){ b.lastGrain = Object.assign({}, b.grain); b.grain = null; }
+        b.texture = b.lastTexture || newTexture(64); b.lastTexture = null;
+      } else { b.lastTexture = b.texture; b.texture = null; }
+      EL.forget(b.uid); syncRows(); syncTexUI(); edited();
+    });
+    $('texInvert').addEventListener('change', function(){ var t = curTex(); if(t){ t.invert = this.checked; edited(); } });
+    $('texRepeat').addEventListener('change', function(){ var t = curTex(); if(t){ t.repeat = this.checked; syncTexUI(); edited(); } });
+    $('texPaintBtn').addEventListener('click', function(){ texPen.erase = false; syncTexUI(); });
+    $('texEraseBtn').addEventListener('click', function(){ texPen.erase = true; syncTexUI(); });
+    $('texUndoBtn').addEventListener('click', texUndo);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-pat]'), function(bt){
+      bt.addEventListener('click', function(){
+        var t = curTex(); if(!t) return;
+        texSnap();
+        if(bt.dataset.pat === 'flip'){
+          var c = t.canvas, x = c.getContext('2d'), im = x.getImageData(0, 0, c.width, c.height), d = im.data;
+          for(var i = 0; i < d.length; i += 4){ d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2]; }
+          x.putImageData(im, 0, 0);
+        } else fillPattern(t, PATTERNS[bt.dataset.pat]);
+        texTouched(); renderTexEditor();
+      });
+    });
+    Array.prototype.forEach.call($('texRes').children, function(bt){
+      bt.addEventListener('click', function(){
+        var t = curTex(); if(!t) return;
+        var n = +bt.dataset.res, c = t.canvas, m = n / Math.max(c.width, c.height);
+        var w = Math.max(2, Math.round(c.width * m)), h = Math.max(2, Math.round(c.height * m));
+        var tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; tmp.getContext('2d').drawImage(c, 0, 0, w, h);
+        c.width = w; c.height = h; c.getContext('2d').drawImage(tmp, 0, 0);
+        t.hist = []; texTouched(); syncTexUI();
+      });
+    });
+    $('texUploadBtn').addEventListener('click', function(){ $('texFile').click(); });
+    $('texFile').addEventListener('change', function(){
+      var f = this.files && this.files[0], input = this, t = curTex(); if(!f || !t) return;
+      var rd = new FileReader();
+      rd.onload = function(){
+        var img = new Image();
+        img.onload = function(){
+          var tt = curTex(); if(!tt) return;
+          var side = Math.max(tt.canvas.width, tt.canvas.height), iw = img.naturalWidth || 1, ih = img.naturalHeight || 1, m = side / Math.max(iw, ih);
+          var w = Math.max(2, Math.round(iw * m)), h = Math.max(2, Math.round(ih * m)), c = tt.canvas;
+          c.width = w; c.height = h;
+          var x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, w, h); x.drawImage(img, 0, 0, w, h);
+          var im = x.getImageData(0, 0, w, h), d = im.data;
+          for(var i = 0; i < d.length; i += 4){ var g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]); d[i] = d[i + 1] = d[i + 2] = g; d[i + 3] = 255; }
+          x.putImageData(im, 0, 0);
+          tt.hist = []; texTouched(); syncTexUI(); toast('Image loaded as a texture — dark areas are gaps');
+        };
+        img.onerror = function(){ toast('Could not read that image'); };
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(f); input.value = '';
+    });
+
+    // painting: dabs wrap around the tile edges so the pattern always repeats seamlessly
+    var te = $('texEdit');
+    function tp(e){ var r = te.getBoundingClientRect(); return { x: (e.clientX - r.left) * te.width / r.width, y: (e.clientY - r.top) * te.height / r.height }; }
+    function dab(t, x, y){
+      var c = t.canvas, ctx = c.getContext('2d'), w = c.width, h = c.height, r = Math.max(0.5, texPen.size / 2);
+      ctx.fillStyle = (texPen.erase ? 'rgba(0,0,0,' : 'rgba(255,255,255,') + texPen.alpha + ')';
+      var rp = t.repeat !== false, x0 = rp ? -w : 0, y0 = rp ? -h : 0;
+      for(var ox = x0; ox <= (rp ? w : 0); ox += w) for(var oy = y0; oy <= (rp ? h : 0); oy += h){
+        var px = x + ox, py = y + oy;
+        if(px + r < 0 || px - r > w || py + r < 0 || py - r > h) continue;
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    function seg(t, a, b){
+      var dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy), step = Math.max(0.4, texPen.size * 0.3), n = Math.max(1, Math.ceil(dist / step));
+      for(var i = 1; i <= n; i++) dab(t, a.x + dx * i / n, a.y + dy * i / n);
+    }
+    te.addEventListener('pointerdown', function(e){
+      var t = curTex(); if(!t) return;
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault(); try{ te.setPointerCapture(e.pointerId); }catch(_){}
+      texSnap(); texDrag = tp(e); dab(t, texDrag.x, texDrag.y); renderTexEditor(); texTouched();
+    });
+    te.addEventListener('pointermove', function(e){
+      var t = curTex(); if(!texDrag || !t) return;
+      var p = tp(e); seg(t, texDrag, p); texDrag = p; renderTexEditor(); texTouched();
+    });
+    function up(e){ texDrag = null; try{ te.releasePointerCapture(e.pointerId); }catch(_){} }
+    te.addEventListener('pointerup', up); te.addEventListener('pointercancel', up);
+  }
+
+  /* ---------- tabs ---------- */
+  function showTab(json){
+    $('tabBrush').setAttribute('aria-selected', String(!json)); $('tabJson').setAttribute('aria-selected', String(json));
+    $('paneBrush').hidden = json; $('paneJson').hidden = !json;
+    if(json) refreshJson(false);
+  }
+  $('tabBrush').addEventListener('click', function(){ showTab(false); });
+  $('tabJson').addEventListener('click', function(){ showTab(true); });
+
+  /* ---------- JSON pane ---------- */
+  function singleJson(){ return JSON.stringify(serialize(cur()), null, 2); }
+  function allJson(){ return JSON.stringify(brushes.map(serialize), null, 2); }
+  function refreshJson(force){
+    if(jsonDirty && !force) return;
+    if(force) jsonDirty = false;
+    $('jsonArea').value = singleJson();
+    $('jsonApply').disabled = true;
+    setMsg('');
+  }
+  function setMsg(t, err){ var m = $('jsonMsg'); m.textContent = t || '\u00A0'; m.className = 'setting-note' + (err ? ' msg-err' : ''); }
+  $('jsonArea').addEventListener('input', function(){ jsonDirty = true; $('jsonApply').disabled = false; setMsg(''); });
+  $('jsonApply').addEventListener('click', function(){
+    var j;
+    try{ j = JSON.parse($('jsonArea').value); }catch(e){ setMsg('Not valid JSON: ' + e.message, true); return; }
+    if(Array.isArray(j) || (j && Array.isArray(j.brushes))){
+      var n = importBrushes(j);
+      if(!n){ setMsg('No brushes found in that list.', true); return; }
+      jsonDirty = false; toast('Added ' + n + ' brush' + (n === 1 ? '' : 'es') + ' to the library'); return;
+    }
+    if(!j || typeof j !== 'object' || !KEYS.concat(['name', 'grain', 'texture']).some(function(k){ return k in j; })){ setMsg('No brush fields found — expected things like hardness, spacing, flow.', true); return; }
+    var nb = clean(j), b = cur();
+    b.name = nb.name; KEYS.forEach(function(k){ b[k] = nb[k]; }); b.grain = nb.grain; b.lastGrain = nb.lastGrain; b.texture = nb.texture; b.lastTexture = null;
+    EL.forget(b.uid); jsonDirty = false;
+    buildStrip(); syncInspector(); saveSoon();
+    toast('Applied');
+  });
+  $('jsonCopy').addEventListener('click', function(){ copyText($('jsonArea').value).then(function(ok){ toast(ok ? 'Copied' : 'Copy failed — select the text and copy it manually'); }); });
+
+  /* =====================================================================
+     Library strip
+     ===================================================================== */
+  function buildStrip(){
+    var host = $('filmstrip'); host.innerHTML = '';
+    brushes.forEach(function(b, i){
+      var c = document.createElement('button'); c.type = 'button'; c.className = 'brush-cell' + (i === active ? ' active' : ''); c.title = b.name;
+      var cv = document.createElement('canvas'); cv.width = 208; cv.height = 116; c.appendChild(cv);
+      var nm = document.createElement('span'); nm.className = 'brush-name'; nm.textContent = b.name; c.appendChild(nm);
+      c.addEventListener('click', function(){ select(i); });
+      host.appendChild(c);
+    });
+    var add = document.createElement('button'); add.type = 'button'; add.className = 'add-frame-btn'; add.textContent = '+'; add.title = 'New brush'; add.setAttribute('aria-label', 'New brush'); add.setAttribute('aria-expanded', 'false');
+    add.addEventListener('click', function(){ openPopover($('newMenu'), add); });
+    host.appendChild(add);
+    for(var i = 0; i < brushes.length; i++) renderThumb(i);
+    updateStripState();
+  }
+  function updateStripState(){
+    var cells = $('filmstrip').children;
+    for(var i = 0; i < brushes.length; i++) if(cells[i]) cells[i].classList.toggle('active', i === active);
+    $('brushCounter').textContent = 'Brush ' + (active + 1) + ' / ' + brushes.length;
+    $('moveLeftBtn').disabled = active === 0;
+    $('moveRightBtn').disabled = active === brushes.length - 1;
+    $('prevBrushBtn').disabled = active === 0;
+    $('nextBrushBtn').disabled = active === brushes.length - 1;
+    $('exAllDesc').textContent = brushes.length + ' brush' + (brushes.length === 1 ? '' : 'es') + ' in one .json file';
+    var a = cells[active]; if(a && a.scrollIntoView) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+  function select(i){
+    if(i < 0 || i >= brushes.length) return;
+    active = i; jsonDirty = false;
+    updateStripState(); syncInspector(); saveSoon();
+  }
+  function addBrush(o){
+    if(brushes.length >= MAX_BRUSHES){ toast('The library is full (' + MAX_BRUSHES + ' brushes)'); return; }
+    brushes.push(clean(o)); active = brushes.length - 1; jsonDirty = false;
+    buildStrip(); syncInspector(); saveSoon();
+  }
+  function importBrushes(j){
+    var arr = Array.isArray(j) ? j : (j && Array.isArray(j.brushes) ? j.brushes : [j]), added = 0;
+    arr.slice(0, 20).forEach(function(o){
+      if(brushes.length >= MAX_BRUSHES) return;
+      var b = clean(o); if(b){ brushes.push(b); added++; }
+    });
+    if(added){ active = brushes.length - 1; jsonDirty = false; buildStrip(); syncInspector(); saveSoon(); }
+    return added;
+  }
+  $('prevBrushBtn').addEventListener('click', function(){ select(active - 1); });
+  $('nextBrushBtn').addEventListener('click', function(){ select(active + 1); });
+  $('dupBtn').addEventListener('click', function(){ addBrush(Object.assign(serialize(cur()), { name: (cur().name + ' copy').slice(0, 18) })); });
+  $('moveLeftBtn').addEventListener('click', function(){ moveBrush(-1); });
+  $('moveRightBtn').addEventListener('click', function(){ moveBrush(1); });
+  function moveBrush(d){
+    var j = active + d; if(j < 0 || j >= brushes.length) return;
+    var t = brushes[active]; brushes[active] = brushes[j]; brushes[j] = t; active = j;
+    buildStrip(); saveSoon();
+  }
+  $('delBtn').addEventListener('click', function(){
+    var b = cur();
+    confirmBox('Delete “' + b.name + '”?', brushes.length === 1 ? 'This is your only brush, so it will be replaced with a blank one.' : 'It will be removed from the library. Exported files are not affected.', 'Delete', function(){
+      brushes.splice(active, 1);
+      if(!brushes.length) brushes.push(clean({ name: 'My brush' }));
+      active = Math.min(active, brushes.length - 1); jsonDirty = false;
+      buildStrip(); syncInspector(); saveSoon();
+    });
+  });
+
+  /* ---------- new-brush menu ---------- */
+  $('newBtn').addEventListener('click', function(){ openPopover($('newMenu'), $('newBtn')); });
+  $('newMenu').addEventListener('click', function(e){
+    var it = e.target.closest('[data-new]'); if(!it) return;
+    var k = it.getAttribute('data-new');
+    closePopover();
+    if(k === 'copy') addBrush(Object.assign(serialize(cur()), { name: (cur().name + ' copy').slice(0, 18) }));
+    else addBrush(PRESETS[k] || PRESETS.blank);
+  });
+
+  /* =====================================================================
+     Import / export
+     ===================================================================== */
+  function copyText(t){
+    function fallback(){
+      var ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); var ok = false;
+      try{ ok = document.execCommand('copy'); }catch(e){}
+      ta.remove(); return ok;
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).then(function(){ return true; }, function(){ return fallback(); });
+    return Promise.resolve(fallback());
+  }
+  function slug(s){ return String(s || 'brush').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'brush'; }
+  function download(name, text){
+    var blob = new Blob([text], { type: 'application/json' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  }
+  function downloadOne(){ download(slug(cur().name) + '.json', singleJson()); toast('Downloaded ' + slug(cur().name) + '.json'); }
+  $('downloadBtn').addEventListener('click', downloadOne);
+  $('copyBtn').addEventListener('click', function(){ copyText(singleJson()).then(function(ok){ toast(ok ? 'Copied ' + cur().name + ' JSON' : 'Copy failed'); }); });
+  $('exportBtn').addEventListener('click', function(){ openPopover($('exportPop'), $('exportBtn')); });
+  $('exOne').addEventListener('click', function(){ closePopover(); downloadOne(); });
+  $('exAll').addEventListener('click', function(){ closePopover(); download('brushes.json', allJson()); toast('Downloaded brushes.json'); });
+  $('exCopyOne').addEventListener('click', function(){ closePopover(); copyText(singleJson()).then(function(ok){ toast(ok ? 'Copied ' + cur().name + ' JSON' : 'Copy failed'); }); });
+  $('exCopyAll').addEventListener('click', function(){ closePopover(); copyText(allJson()).then(function(ok){ toast(ok ? 'Copied all brushes' : 'Copy failed'); }); });
+
+  $('importBtn').addEventListener('click', function(){ $('importFile').click(); });
+  $('importFile').addEventListener('change', function(){
+    var files = Array.prototype.slice.call(this.files || []), input = this, total = 0, bad = 0, left = files.length;
+    if(!left) return;
+    files.forEach(function(f){
+      f.text().then(function(txt){ total += importBrushes(JSON.parse(txt)); }).catch(function(){ bad++; }).then(function(){
+        if(--left) return;
+        toast(bad && !total ? 'Not a valid brush file' : 'Imported ' + total + ' brush' + (total === 1 ? '' : 'es') + (bad ? ' (' + bad + ' file' + (bad === 1 ? '' : 's') + ' skipped)' : ''));
+      });
+    });
+    input.value = '';
+  });
+
+  /* =====================================================================
+     Popovers, modal, toast
+     ===================================================================== */
+  var pop = null;
+  function place(el, a){
+    var r = a.getBoundingClientRect(), pw = el.offsetWidth, ph = el.offsetHeight, m = 8, left, top;
+    if(a.closest('.toolbar') && window.innerWidth > 860){ left = r.right + 8; top = r.top; }
+    else if(a.closest('.filmstrip-wrap')){ left = r.left; top = r.top - ph - 6; }
+    else { left = r.left; top = r.bottom + 6; }
+    el.style.left = Math.max(m, Math.min(left, window.innerWidth - pw - m)) + 'px';
+    el.style.top = Math.max(m, Math.min(top, window.innerHeight - ph - m)) + 'px';
+  }
+  function openPopover(el, anchor){
+    if(pop && pop.el === el){ closePopover(); return; }
+    closePopover();
+    el.hidden = false; pop = { el: el, anchor: anchor }; anchor.setAttribute('aria-expanded', 'true');
+    place(el, anchor);
+  }
+  function closePopover(){
+    if(!pop) return;
+    pop.el.hidden = true; pop.anchor.setAttribute('aria-expanded', 'false'); pop = null;
+  }
+  document.addEventListener('pointerdown', function(e){
+    if(pop && !pop.el.contains(e.target) && !pop.anchor.contains(e.target)) closePopover();
+  }, true);
+  window.addEventListener('resize', function(){ if(pop) place(pop.el, pop.anchor); });
+
+  var cmCb = null;
+  function confirmBox(title, desc, okText, cb){
+    $('cmTitle').textContent = title; $('cmDesc').textContent = desc; $('cmOk').textContent = okText; cmCb = cb;
+    $('confirmModal').hidden = false; $('cmCancel').focus();
+  }
+  function closeConfirm(){ $('confirmModal').hidden = true; cmCb = null; }
+  $('cmCancel').addEventListener('click', closeConfirm);
+  $('cmOk').addEventListener('click', function(){ var f = cmCb; closeConfirm(); if(f) f(); });
+  $('confirmModal').addEventListener('pointerdown', function(e){ if(e.target === this) closeConfirm(); });
+
+  var toastT = 0;
+  function toast(msg){
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  /* =====================================================================
+     Test canvas
+     ===================================================================== */
+  var cv = $('drawCanvas'), ctx = cv.getContext('2d'), stage = $('stage'), wrap = $('stageWrap');
+  function fitStage(){
+    var cs = getComputedStyle(wrap);
+    var availW = Math.max(40, wrap.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+    var availH = Math.max(40, wrap.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom));
+    var ratio = W / H, w = availW, h = w / ratio;
+    if(window.innerWidth > 860 && h > availH){ h = availH; w = h * ratio; }
+    stage.style.width = w + 'px'; stage.style.height = h + 'px';
+  }
+  if(window.ResizeObserver) new ResizeObserver(fitStage).observe(wrap);
+  window.addEventListener('resize', fitStage);
+
+  var drawing = false, last = null, run = null;
+  function pt(e){ var r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+  function stamp(a, b){ EL.segment(ctx, cur(), a, b, { size: S.size, alpha: S.alpha, erase: S.tool === 'eraser', color: S.color, run: run }); }
+  cv.addEventListener('pointerdown', function(e){
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault(); closePopover();
+    try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    pushUndo(); drawing = true; $('stageHint').hidden = true;
+    run = { t: 0 }; last = pt(e); stamp(last, last);
+  });
+  cv.addEventListener('pointermove', function(e){
+    if(!drawing) return;
+    var evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    if(!evs.length) evs = [e];
+    for(var i = 0; i < evs.length; i++){ var p = pt(evs[i]); stamp(last, p); last = p; }
+  });
+  function endStroke(e){
+    if(!drawing) return;
+    drawing = false;
+    try{ cv.releasePointerCapture(e.pointerId); }catch(_){}
+  }
+  cv.addEventListener('pointerup', endStroke);
+  cv.addEventListener('pointercancel', endStroke);
+
+  /* ---------- undo / redo / clear ---------- */
+  var undoS = [], redoS = [], MAXU = 15;
+  function snap(){ var c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(cv, 0, 0); return c; }
+  function restore(c){ ctx.clearRect(0, 0, W, H); ctx.drawImage(c, 0, 0); }
+  function pushUndo(){ undoS.push(snap()); if(undoS.length > MAXU) undoS.shift(); redoS = []; syncHist(); }
+  function undo(){ if(!undoS.length) return; redoS.push(snap()); restore(undoS.pop()); syncHist(); }
+  function redo(){ if(!redoS.length) return; undoS.push(snap()); restore(redoS.pop()); syncHist(); }
+  function syncHist(){ $('undoBtn').disabled = !undoS.length; $('redoBtn').disabled = !redoS.length; }
+  $('undoBtn').addEventListener('click', undo);
+  $('redoBtn').addEventListener('click', redo);
+  $('clearBtn').addEventListener('click', function(){ pushUndo(); ctx.clearRect(0, 0, W, H); $('stageHint').hidden = false; });
+
+  /* ---------- tools ---------- */
+  function setTool(t){
+    S.tool = t; $('penBtn').setAttribute('aria-pressed', String(t === 'pen')); $('eraserBtn').setAttribute('aria-pressed', String(t === 'eraser')); saveSoon();
+  }
+  $('penBtn').addEventListener('click', function(){ setTool('pen'); });
+  $('eraserBtn').addEventListener('click', function(){ setTool('eraser'); });
+
+  /* ---------- color ---------- */
+  var PALETTE = [
+    '#000000','#18161C','#3A3A3A','#6B6B6B','#9B9B9B','#FFFFFF',
+    '#E8532E','#FF8A3D','#FFC145','#F5E663','#8BC34A','#4CAF50',
+    '#1FA98F','#3FE0C4','#3B82F6','#5B6EF5','#8B5CF6','#B975E8',
+    '#EF476F','#EC407A','#EF9A9A','#795548','#4E342E','#D8C7A1'
+  ];
+  function buildPalette(){
+    var g = $('palGrid'); g.innerHTML = '';
+    PALETTE.forEach(function(c){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'palette-swatch'; b.style.background = c; b.setAttribute('aria-label', c); b.dataset.c = c;
+      b.addEventListener('click', function(){ setColor(c); });
+      g.appendChild(b);
+    });
+  }
+  function setColor(hex){
+    var h = String(hex).trim();
+    if(h[0] !== '#') h = '#' + h;
+    if(/^#[0-9a-f]{3}$/i.test(h)) h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+    if(!/^#[0-9a-f]{6}$/i.test(h)){ $('hexIn').value = S.color; return; }
+    S.color = h.toUpperCase();
+    $('colorSwatch').style.background = S.color; $('colPrev').style.background = S.color;
+    $('hexIn').value = S.color; $('colNative').value = S.color.toLowerCase();
+    Array.prototype.forEach.call($('palGrid').children, function(b){ b.setAttribute('aria-pressed', String(b.dataset.c.toUpperCase() === S.color)); });
+    renderAll(); saveSoon();
+  }
+  $('colorBtn').addEventListener('click', function(){ openPopover($('colorPop'), $('colorBtn')); });
+  $('hexIn').addEventListener('change', function(){ setColor(this.value); });
+  $('colNative').addEventListener('input', function(){ setColor(this.value); });
+
+  /* ---------- size & opacity ---------- */
+  function sizeToSlider(s){ return Math.round(1000 * Math.sqrt(s / 500)); }
+  function sliderToSize(v){ return Math.max(1, Math.round(500 * Math.pow(v / 1000, 2))); }
+  function syncSize(){
+    $('sizeNum').value = S.size; $('sizeRange').value = sizeToSlider(S.size);
+    $('alphaNum').value = Math.round(S.alpha * 100); $('alphaRange').value = Math.round(S.alpha * 100);
+    $('sizeValue').textContent = S.size + 'px';
+    var d = Math.max(2, Math.min(18, 2 + Math.sqrt(S.size) * 1.2)); $('sizeDot').style.width = $('sizeDot').style.height = d + 'px';
+    $('sizeDot').style.opacity = String(0.25 + 0.75 * S.alpha);
+  }
+  function setSize(v){ S.size = Math.max(1, Math.min(500, Math.round(v))); syncSize(); renderStrip(); saveSoon(); }
+  function setAlpha(v){ S.alpha = Math.max(0.01, Math.min(1, v / 100)); syncSize(); saveSoon(); }
+  $('sizeBtn').addEventListener('click', function(){ openPopover($('sizePop'), $('sizeBtn')); });
+  $('sizeRange').addEventListener('input', function(){ setSize(sliderToSize(parseFloat(this.value))); });
+  $('sizeNum').addEventListener('change', function(){ var n = parseFloat(this.value); setSize(isFinite(n) ? n : S.size); });
+  $('alphaRange').addEventListener('input', function(){ setAlpha(parseFloat(this.value)); });
+  $('alphaNum').addEventListener('change', function(){ var n = parseFloat(this.value); setAlpha(isFinite(n) ? n : S.alpha * 100); });
+
+  /* ---------- canvas background & frame guide ---------- */
+  function applyBg(){
+    stage.classList.toggle('solid-bg', !!BG[S.bg]);
+    stage.style.backgroundColor = BG[S.bg] || '';
+    $('frameGuide').hidden = !S.guide;
+    Array.prototype.forEach.call($('bgMenu').querySelectorAll('[data-bg]'), function(b){ b.setAttribute('aria-checked', String(b.dataset.bg === S.bg)); });
+    $('guideItem').setAttribute('aria-checked', String(S.guide));
+  }
+  $('bgBtn').addEventListener('click', function(){ openPopover($('bgMenu'), $('bgBtn')); });
+  $('bgMenu').addEventListener('click', function(e){
+    var it = e.target.closest('.layer-menu-item'); if(!it) return;
+    if(it.id === 'guideItem'){ S.guide = !S.guide; applyBg(); saveSoon(); return; }
+    S.bg = it.dataset.bg; applyBg(); renderAll(); saveSoon();
+  });
+
+  /* ---------- keyboard ---------- */
+  window.addEventListener('keydown', function(e){
+    var tag = (e.target && e.target.tagName) || '';
+    if(e.key === 'Escape'){ if(!$('confirmModal').hidden) closeConfirm(); else closePopover(); return; }
+    if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    var mod = e.ctrlKey || e.metaKey;
+    if(mod && e.key.toLowerCase() === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if(mod && e.key.toLowerCase() === 'y'){ e.preventDefault(); redo(); return; }
+    if(mod || e.altKey) return;
+    var k = e.key.toLowerCase();
+    if(k === 'p') setTool('pen');
+    else if(k === 'e') setTool('eraser');
+    else if(k === '[') setSize(S.size > 20 ? S.size - 4 : S.size - 1);
+    else if(k === ']') setSize(S.size >= 20 ? S.size + 4 : S.size + 1);
+  });
+
+  /* =====================================================================
+     Boot
+     ===================================================================== */
+  load();
+  buildRows();
+  buildTexUI();
+  buildPalette();
+  applyBg();
+  setTool(S.tool);
+  syncSize();
+  syncHist();
+  buildStrip();
+  setColor(S.color);      // also repaints the previews
+  syncInspector();
+  fitStage();
+  requestAnimationFrame(fitStage);
+})();
+</script>
+</body>
+</html>

@@ -3734,6 +3734,7 @@
   // Erases the selected pixels. The selection itself stays, so you can fill or paint into it next.
   function eraseSelection(){
     if(!selection) return;
+    if(lockedGuard()) return;
     if(selection.content){
       commitFloat({ draw: false });          // the floating pixels are simply dropped
     } else {
@@ -3793,6 +3794,7 @@
   }
   function invertSelectionColors(){
     if(!selection || state.playing) return;
+    if(lockedGuard()) return;
     if(!state.invertAllLayers){
       if(selection.content){
         invertCanvasInPlace(selection.content);
@@ -3966,6 +3968,7 @@
 
   function flipSelection(axis){
     if(!selection) return;
+    if(lockedGuard()) return;
     liftSelection();
     var cx = selection.bx + selection.bw / 2;
     var cy = selection.by + selection.bh / 2;
@@ -4052,6 +4055,7 @@
 
   function pasteSelection(){
     if(!clipboard) return;
+    if(lockedGuard()) return;
     if(clipboard.mode === 'canvas'){
       if(selection) bakeSelection();
       pushUndoState();
@@ -4084,7 +4088,7 @@
 
   // ---------- Canvas pinch-to-zoom & two-finger rotate (whole canvas box, UI stays fixed) ----------
   var zoomResetBtn = document.getElementById('zoomResetBtn');
-  var ZOOM_MIN = 0.5, ZOOM_MAX = 15;
+  var ZOOM_MIN = 0.5, ZOOM_MAX = 50;
   var zoomState = { scale: 1, tx: 0, ty: 0, angle: 0 }; // angle in radians
   var touchPositions = new Map(); // pointerId -> {x,y} in client coords
   var pinchActive = false;
@@ -4578,10 +4582,12 @@
           : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.3 21.3 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a21.3 21.3 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
         visBtn.addEventListener('click', function(e){
           e.stopPropagation();
+          var hsV = takeFrameSnap();
           L.visible = !L.visible;
           renderLayerPanel();
           updateLayerBackdrops(); updateActiveLayerCanvasVisibility();
           recompositeFrame(frame, state.current);
+          pushFrameOp(L.visible ? 'Showed a layer' : 'Hid a layer', hsV, { quiet: true });
         });
 
         var name = document.createElement('span');
@@ -4599,10 +4605,12 @@
           input.select();
           function commitRename(){
             var val = input.value.trim();
-            if(val){
+            if(val && val !== L.name){
+              var hsN = takeFrameSnap();
               L.name = val;
               if(state.syncLayers) syncRenameLayerAcrossFrames(state.current, i, val);
               persist();
+              pushFrameOp('Renamed a layer', hsN, { quiet: true });
             }
             renderLayerPanel();
           }
@@ -4662,7 +4670,15 @@
           recompositeFrame(frame, state.current);
         }
         opacityRange.addEventListener('click', function(e){ e.stopPropagation(); });
-        opacityRange.addEventListener('input', function(){ commitLayerOpacity(parseInt(opacityRange.value, 10)); });
+        var opSnap = null, opStart = L.opacity;   // one undo step per slider drag, not per tick
+        opacityRange.addEventListener('input', function(){
+          if(!opSnap){ opStart = L.opacity; opSnap = takeFrameSnap(); }
+          commitLayerOpacity(parseInt(opacityRange.value, 10));
+        });
+        opacityRange.addEventListener('change', function(){
+          if(opSnap && L.opacity !== opStart) pushFrameOp('Changed layer opacity', opSnap, { quiet: true });
+          opSnap = null;
+        });
         opacityRow.appendChild(opacityRange);
         opacityRow.appendChild(opacityValue);
         var blendBtn = document.createElement('button');
@@ -4674,7 +4690,9 @@
         blendBtn.addEventListener('click', function(e){
           e.stopPropagation();
           openBlendMenu(blendBtn, L.blend || 'normal', function(v){
+            var hsB = (v !== (L.blend || 'normal')) ? takeFrameSnap() : null;
             L.blend = v;
+            if(hsB) pushFrameOp('Changed layer blend mode', hsB, { quiet: true });
             renderLayerPanel();
             updateActiveLayerCanvasVisibility();
             updateLayerBackdrops();
@@ -4740,6 +4758,7 @@
   }
   function addLayer(){
     var frame = migrateFrame(state.frames[state.current]);
+    var hs = takeFrameSnap();
     captureActiveLayerData(frame, function(){
       var layer = makeLayer(blankDataURL, 'Layer ' + (frame.layers.length + 1));
       var insertAt = frame.active + 1;
@@ -4751,11 +4770,13 @@
         updateLayerBackdrops(); updateActiveLayerCanvasVisibility();
         renderLayerPanel();
         recompositeFrame(frame, state.current);
+        pushFrameOp('Added a layer', hs, { quiet: true });
       });
     });
   }
   function duplicateLayer(i){
     var frame = migrateFrame(state.frames[state.current]);
+    var hs = takeFrameSnap();
     function proceed(){
       var src = frame.layers[i];
       var copy = makeLayer(src.data, src.name + ' copy');
@@ -4768,6 +4789,7 @@
       updateLayerBackdrops(); updateActiveLayerCanvasVisibility();
       recompositeFrame(frame, state.current);
       persist();
+      pushFrameOp('Duplicated a layer', hs, { quiet: true });
     }
     if(i === frame.active) captureActiveLayerData(frame, proceed); else proceed();
   }
@@ -4801,6 +4823,7 @@
     clearTimeout(noteTimer); noteTimer = setTimeout(function(){ noteEl.classList.remove('show'); noteEl.style.pointerEvents = 'none'; }, action ? 7000 : 2400);
   }
   function activeLayerLocked(){ var fr = migrateFrame(state.frames[state.current]), L = fr.layers[fr.active]; return !!(L && L.locked); }
+  function lockedGuard(){ if(!activeLayerLocked()) return false; showNote('This layer is locked \u2014 unlock it in the layer menu (\u22ee) first.'); return true; }
   var LOCKED_TOOLS = { pen: 1, eraser: 1, fill: 1, line: 1, curve: 1, path: 1, shape: 1, text: 1, smudge: 1 };
   // Merge down: layer i is painted onto the layer below it (with its own opacity / blend / clip), and that layer keeps its own name,
   // opacity and blend mode. Hidden layers aren't merged (nothing to merge), so it asks you to show it first.
@@ -4808,6 +4831,7 @@
     var frame = migrateFrame(state.frames[state.current]);
     if(i <= 0 || i >= frame.layers.length) return;
     if(!frame.layers[i].visible){ showNote('Show the layer first — hidden layers aren\u2019t merged.'); return; }
+    if(frame.layers[i].locked || frame.layers[i - 1].locked){ showNote('A locked layer can\u2019t be merged \u2014 unlock it in the layer menu (\u22ee) first.'); return; }
     if(state.playing) return;
     var hs = takeFrameSnap();
     captureActiveLayerData(frame, function(){
@@ -4832,6 +4856,7 @@
     var frame = migrateFrame(state.frames[state.current]);
     var j = i + dir;
     if(j < 0 || j >= frame.layers.length) return;
+    var hs = takeFrameSnap();
     function proceed(){
       var tmp = frame.layers[i];
       frame.layers[i] = frame.layers[j];
@@ -4842,6 +4867,7 @@
       updateLayerBackdrops(); updateActiveLayerCanvasVisibility();
       recompositeFrame(frame, state.current);
       persist();
+      pushFrameOp('Moved a layer', hs, { quiet: true });
     }
     if(i === frame.active) captureActiveLayerData(frame, proceed); else proceed();
   }
@@ -4933,10 +4959,11 @@
     var frameIdx = state.current;
     var frame = migrateFrame(state.frames[frameIdx]);
     var list = which || frame.layers.map(function(_, i){ return i; });
-    var jobs = [];
+    var jobs = [], lockedSkipped = 0;
     list.forEach(function(i){
       var L = frame.layers[i];
       if(!L) return;
+      if(L.locked){ lockedSkipped++; return; }
       if(i === frame.active){
         pushUndoState();
         invertCanvasInPlace(drawCanvas);
@@ -4951,6 +4978,7 @@
         jobs.push(invertLayerCanvas(L).then(function(c){ if(c) deferLayerEncode(L, c); }));   // the inverted canvas is used as-is; its PNG is encoded in the background
       }
     });
+    if(lockedSkipped) showNote(lockedSkipped === 1 ? 'Skipped a locked layer.' : 'Skipped ' + lockedSkipped + ' locked layers.');
     Promise.all(jobs).then(function(){
       if(state.current === frameIdx) updateLayerBackdrops();
       recompositeFrame(frame, frameIdx);
@@ -6159,6 +6187,7 @@
     var hs = takeFrameSnap();
     var arr = idx.map(function(i){ return state.frames[i]; }).reverse();
     idx.forEach(function(i, k){ state.frames[i] = arr[k]; });
+    camRemapFrames(function(f){ var k = idx.indexOf(f); return k < 0 ? f : idx[idx.length - 1 - k]; });
     renderFilmstrip(); selectFrame(state.current); persist();
     pushFrameOp('Reversed the selected frames', hs);
   }
@@ -6990,8 +7019,10 @@
   function setFrameLabel(i, text){
     var f = state.frames[i]; if(!f) return;
     text = (text || '').replace(/\s+/g, ' ').trim().slice(0, 28);
+    var changed = (f.label || '') !== text, hs = changed ? takeFrameSnap() : null;
     if(text) f.label = text; else delete f.label;
     renderFilmstrip(); refreshMarkerUI(); persist();
+    if(changed) pushFrameOp(text ? 'Set a frame label' : 'Removed a frame label', hs, { quiet: true });
   }
   var markerPopEl = null;
   function positionMarkerPop(){
@@ -7063,6 +7094,14 @@
     return null;
   }
   function camOnInsert(idx, n){ state.camera.keys.forEach(function(k){ if(k.f >= idx) k.f += n; }); }
+  // Camera edits are undoable: a slider drag / typing burst is ONE step (the snapshot is taken at the first change and pushed once
+  // the edit goes quiet, on release, or right before Undo/Redo); key removal, Clear and the On switch are one step each.
+  var camUndoSnap = null, camUndoTimer = 0;
+  function camUndoBegin(){ if(!camUndoSnap) camUndoSnap = takeFrameSnap(); clearTimeout(camUndoTimer); camUndoTimer = setTimeout(camUndoFlush, 500); }
+  function camUndoFlush(){ clearTimeout(camUndoTimer); if(!camUndoSnap) return; var hs = camUndoSnap; camUndoSnap = null; pushFrameOp('Changed the camera', hs, { quiet: true }); }
+  function camUndoOp(name, fn){ camUndoFlush(); var hs = takeFrameSnap(); fn(); pushFrameOp(name, hs, { quiet: true }); }
+  // Frames were re-ordered: every camera key follows its frame. mapFn(oldIndex) -> newIndex.
+  function camRemapFrames(mapFn){ var c = state.camera; if(!c || !c.keys || !c.keys.length) return; c.keys.forEach(function(k){ k.f = mapFn(k.f); }); c.keys.sort(function(a, b){ return a.f - b.f; }); if(typeof cameraRefresh === 'function') cameraRefresh(); }
   function camOnDelete(idx){ state.camera.keys = state.camera.keys.filter(function(k){ return k.f !== idx; }); state.camera.keys.forEach(function(k){ if(k.f > idx) k.f--; }); }
   // draws frame i (from its stored full-canvas image) into a FRAME_W x FRAME_H export canvas, through the camera when it's on
   function drawFrameCam(ctx, img, i){
@@ -7124,7 +7163,7 @@
       it.innerHTML = '<b></b><span></span><button type="button" class="mk-x" aria-label="Remove this key" title="Remove this key">&times;</button>';
       it.querySelector('b').textContent = k.f + 1;
       it.querySelector('span').textContent = Math.round(k.zoom * 100) + '% · pan ' + Math.round(k.x) + ', ' + Math.round(k.y) + (k.rot ? ' · ' + Math.round(k.rot) + '°' : '');
-      it.addEventListener('click', function(e){ if(e.target.closest('.mk-x')){ state.camera.keys = state.camera.keys.filter(function(q){ return q !== k; }); cameraRefresh(); persist(); e.stopPropagation(); return; } navTo(k.f); });
+      it.addEventListener('click', function(e){ if(e.target.closest('.mk-x')){ camUndoOp('Removed a camera key', function(){ state.camera.keys = state.camera.keys.filter(function(q){ return q !== k; }); }); cameraRefresh(); persist(); e.stopPropagation(); return; } navTo(k.f); });
       it.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); navTo(k.f); } });
       list.appendChild(it);
     });
@@ -7157,10 +7196,11 @@
       var sl = row.children[1], nu = row.children[2];
       sl.min = r.min; sl.max = r.max; sl.step = r.step; sl.setAttribute('aria-label', r.label);
       nu.min = r.cmin; nu.max = r.cmax; nu.step = r.step; nu.setAttribute('aria-label', r.label + ' (number)');
-      function apply(v){ if(!isFinite(v)) return; v = Math.max(r.cmin, Math.min(r.cmax, v)); var key = camEnsureKey(); key[r.k] = v / (r.scale || 1); cameraRefresh(); persist(); }
+      function apply(v){ if(!isFinite(v)) return; v = Math.max(r.cmin, Math.min(r.cmax, v)); camUndoBegin(); var key = camEnsureKey(); key[r.k] = v / (r.scale || 1); cameraRefresh(); persist(); }
       sl.addEventListener('input', function(){ apply(+sl.value); });
       nu.addEventListener('input', function(){ apply(parseFloat(nu.value)); });
-      nu.addEventListener('change', cameraRefresh);
+      sl.addEventListener('change', camUndoFlush);
+      nu.addEventListener('change', function(){ camUndoFlush(); cameraRefresh(); });
       nu.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); nu.blur(); } });
       host.appendChild(row);
     });
@@ -7172,9 +7212,9 @@
     camPopEl = document.getElementById('camPop');
     document.getElementById('tlCamBtn').addEventListener('click', function(){ if(camPopEl.hidden) openCamera(); else closeCamera(); });
     document.getElementById('camDone').addEventListener('click', closeCamera);
-    document.getElementById('camOn').addEventListener('change', function(e){ state.camera.on = e.target.checked; cameraRefresh(); persist(); });
-    document.getElementById('camKeyBtn').addEventListener('click', function(){ state.camera.keys = state.camera.keys.filter(function(k){ return k.f !== state.current; }); cameraRefresh(); persist(); });
-    document.getElementById('camClear').addEventListener('click', function(){ state.camera = { on: false, keys: [] }; cameraRefresh(); persist(); });
+    document.getElementById('camOn').addEventListener('change', function(e){ var v = e.target.checked; camUndoOp(v ? 'Turned the camera on' : 'Turned the camera off', function(){ state.camera.on = v; }); cameraRefresh(); persist(); });
+    document.getElementById('camKeyBtn').addEventListener('click', function(){ camUndoOp('Removed a camera key', function(){ state.camera.keys = state.camera.keys.filter(function(k){ return k.f !== state.current; }); }); cameraRefresh(); persist(); });
+    document.getElementById('camClear').addEventListener('click', function(){ if(!state.camera.keys.length && !state.camera.on) return; camUndoOp('Cleared the camera', function(){ state.camera = { on: false, keys: [] }; }); cameraRefresh(); persist(); });
     window.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !camPopEl.hidden) closeCamera(); });
     window.addEventListener('resize', positionCamPop);
   })();
@@ -7693,6 +7733,7 @@
     var moved = state.frames.splice(dragIndex, 1)[0];
     state.frames.splice(dropIndex, 0, moved);
     state.range = null; clearMultiSel();
+    camRemapFrames(function(f){ if(f === dragIndex) return dropIndex; if(dragIndex < dropIndex) return (f > dragIndex && f <= dropIndex) ? f - 1 : f; return (f >= dropIndex && f < dragIndex) ? f + 1 : f; });
     if(state.current === dragIndex) state.current = dropIndex;
     else if(dragIndex < state.current && dropIndex >= state.current) state.current--;
     else if(dragIndex > state.current && dropIndex <= state.current) state.current++;
@@ -7842,6 +7883,7 @@
     var hs = takeFrameSnap();
     state.range = null; clearMultiSel();
     state.frames.reverse();
+    camRemapFrames(function(f){ return state.frames.length - 1 - f; });
     renderFilmstrip();
     selectFrame(state.frames.length - 1 - state.current);
     persist();
@@ -7863,6 +7905,7 @@
   }
 
   function clearFrame(){
+    if(lockedGuard()) return;
     pushUndoState();
     drawCtx.clearRect(0,0,CANVAS_W,CANVAS_H);
     commitCurrentFrame();
@@ -9297,6 +9340,7 @@
       if(lassoDragMode !== 'draw' && selection && !selection.content){
         // the pixels come off the layer only once the drag actually moves (a plain tap never touches them)
         if(lassoDownClient && Math.hypot(e.clientX - lassoDownClient.x, e.clientY - lassoDownClient.y) < 4) return;
+        if(activeLayerLocked()){ lockedGuard(); lassoDragMode = null; return; }   // a locked layer's pixels can't be moved / scaled / rotated
         liftSelection();
       }
       if(lassoDragMode === 'draw'){
@@ -9501,6 +9545,7 @@
   drawCanvas.addEventListener('pointerleave', function(e){ if(isDrawing) onPointerUp(e); });
 
   function undo(){
+    if(typeof camUndoFlush === 'function') camUndoFlush();
     if(frameUndoPending()){ undoFrameOp(); return; }
     if(fxSession){ cancelFx(); return; }   // an FX preview is still open: undo just drops it, nothing was baked yet
     if(gradEdit){ cancelGradEdit(); return; }   // a gradient's handles are still out: undo just drops it, nothing was baked yet
@@ -9537,6 +9582,7 @@
   }
 
   function redo(){
+    if(typeof camUndoFlush === 'function') camUndoFlush();
     if(frameRedoPending()){ redoFrameOp(); return; }
     if(fxSession) return;   // nothing to redo while an FX preview is open
     if(selection && selection.content) return;   // nothing to redo while pixels are floating
@@ -9665,7 +9711,16 @@
     setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
   }
 
+  // Every export is named after the current project ("Robot walk-frame-3.png") instead of a generic "scribble-reel-..." prefix.
+  function exportProjectPrefix(){
+    var nm = '';
+    try{ readProjects().forEach(function(x){ if(x.id === CUR_PROJECT) nm = x.name || ''; }); }catch(e){}
+    nm = String(nm).replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 60);
+    return nm || 'scribble-reel';
+  }
+  function exportNamed(filename){ return /^scribble-reel(?=[-.])/.test(filename) ? filename.replace(/^scribble-reel/, exportProjectPrefix()) : filename; }
   function offerDownload(blob, filename){
+    filename = exportNamed(filename);
     getDownloads().then(function(downloads){
       if(downloads){
         downloads.save({ filename: filename, data: blob }).catch(function(err){
@@ -9702,14 +9757,24 @@
     out.width = XD.w; out.height = XD.h;
     var octx = out.getContext('2d');
     applyExportScale(octx, XD);
+    applyExportSmoothing(octx);
     exportPaintBg(octx, true);
+    function finishPng(){
+      out.toBlob(function(blob){
+        offerDownload(blob, 'scribble-reel-frame-' + (state.current+1) + '.png');
+        restoreBtn();
+      }, 'image/png');
+    }
+    if(state.camera && state.camera.on && camPoseAt(state.current)){   // the camera is on and has a pose here: export what the camera sees, like every other export
+      var camFi = state.current;
+      syncCurrentFrameDataSync();
+      loadImagePromise(state.frames[camFi].data).then(function(img){ if(img) drawFrameCam(octx, img, camFi); finishPng(); });
+      return;
+    }
     octx.drawImage(belowLayersCanvas, -FRAME_X, -FRAME_Y);
     drawActiveLayerInto(octx, -FRAME_X, -FRAME_Y);
     octx.drawImage(aboveLayersCanvas, -FRAME_X, -FRAME_Y);
-    out.toBlob(function(blob){
-      offerDownload(blob, 'scribble-reel-frame-' + (state.current+1) + '.png');
-      restoreBtn();
-    }, 'image/png');
+    finishPng();
   }
 
   // All frames laid out left-to-right, top-to-bottom in one transparent PNG.
@@ -9722,16 +9787,18 @@
       rows = Math.ceil(n / cols);
     }
     var cellCount = Math.min(n, cols * rows);
-    var out = document.createElement('canvas');
-    out.width = cols * FRAME_W; out.height = rows * FRAME_H;
+    var out = document.createElement('canvas'), XD = exportDims();   // cells follow the export-size setting
+    out.width = cols * XD.w; out.height = rows * XD.h;
     var octx = out.getContext('2d');
+    applyExportSmoothing(octx);
     Promise.all(state.frames.slice(0, cellCount).map(function(f){ return loadImagePromise(f.data); })).then(function(imgs){
       imgs.forEach(function(img, i){
         if(!img) return;
         octx.save();
-        octx.translate((i % cols) * FRAME_W, Math.floor(i / cols) * FRAME_H);
+        octx.translate((i % cols) * XD.w, Math.floor(i / cols) * XD.h);
+        octx.scale(XD.w / FRAME_W, XD.h / FRAME_H);
         octx.beginPath(); octx.rect(0, 0, FRAME_W, FRAME_H); octx.clip();
-        drawStoredImageCropped(octx, img);
+        drawFrameCam(octx, img, i);   // through the camera when it's on (same as GIF / video / PNG sequence)
         octx.restore();
       });
       out.toBlob(function(blob){ offerDownload(blob, 'scribble-reel-spritesheet-' + cols + 'x' + rows + '.png'); }, 'image/png');
@@ -9833,6 +9900,7 @@
     out.width = XD.w; out.height = XD.h;
     var octx = out.getContext('2d');
     applyExportScale(octx, XD);
+    applyExportSmoothing(octx);
 
     var stream = out.captureStream(state.fps);
     var exportAudio = null;
@@ -9898,7 +9966,7 @@
     }
 
     var stopped = new Promise(function(resolve){ recorder.onstop = resolve; });
-    var vidIdx = exportRangeIdx(), frameDelay = 1000 / state.fps, totalMs = frameDelay;
+    var vidIdx = pingPongIdx(exportRangeIdx()), frameDelay = 1000 / state.fps, totalMs = frameDelay;
     vidIdx.forEach(function(i){ totalMs += frameDurationMs(i); });
     var t0 = performance.now(), ticker = setInterval(function(){
       var el = performance.now() - t0;
@@ -9982,6 +10050,14 @@
   try{ var _es = parseFloat(localStorage.getItem('scribbleExportScale')); if(_es === 0.5 || _es === 1 || _es === 2) exportScaleVal = _es; }catch(e){}
   function exportDims(){ return { w: Math.max(2, Math.round(FRAME_W * exportScaleVal)), h: Math.max(2, Math.round(FRAME_H * exportScaleVal)) }; }
   function applyExportScale(ctx, d){ ctx.setTransform(d.w / FRAME_W, 0, 0, d.h / FRAME_H, 0, 0); }   // draw in frame coordinates, land at the export size
+  // when "Crisp pixels" is on, exports should look blocky/nearest-neighbour too — not just the on-canvas zoomed view
+  function applyExportSmoothing(ctx){ ctx.imageSmoothingEnabled = !crispPixels; }
+  // which frame indices to actually draw for a sequence export: the range as-is, or forward-then-back if Ping-pong is on
+  function pingPongIdx(idxs){
+    var order = idxs.slice();
+    if(state.pingPong) for(var j = idxs.length - 2; j >= 1; j--) order.push(idxs[j]);
+    return order;
+  }
   function renderExportSize(){
     var host = document.getElementById('exportSizeSeg'); if(!host) return;
     host.innerHTML = '';
@@ -10064,10 +10140,10 @@
   }
   function exportApng(){
     syncCurrentFrameDataSync();
-    var idxs = exportRangeIdx(), order = idxs.slice();
-    if(state.pingPong) for(var j = idxs.length - 2; j >= 1; j--) order.push(idxs[j]);
+    var order = pingPongIdx(exportRangeIdx());
     var D = exportDims(), out = document.createElement('canvas'); out.width = D.w; out.height = D.h;
     var octx = out.getContext('2d');
+    applyExportSmoothing(octx);
     (async function(){
       try{
         var frames = [];
@@ -10093,9 +10169,9 @@
   function exportPngSequence(){
     var btn = document.getElementById('exportSeqBtn');
     syncCurrentFrameDataSync();
-    var idx = exportRangeIdx();
+    var idx = pingPongIdx(exportRangeIdx());
     var XD = exportDims(), out = document.createElement('canvas'); out.width = XD.w; out.height = XD.h;
-    var octx = out.getContext('2d'); applyExportScale(octx, XD);
+    var octx = out.getContext('2d'); applyExportScale(octx, XD); applyExportSmoothing(octx);
     (async function(){
       try{
         var entries = [], timing = [];
@@ -10135,7 +10211,7 @@
       gifRef = gif;
       var canvas = document.createElement('canvas');
       canvas.width = XD.w; canvas.height = XD.h;
-      var ctx = canvas.getContext('2d'); applyExportScale(ctx, XD);
+      var ctx = canvas.getContext('2d'); applyExportScale(ctx, XD); applyExportSmoothing(ctx);
 
       function addFrame(i){
         return new Promise(function(resolve){
@@ -10152,8 +10228,7 @@
       }
 
       (async function(){
-        var idxs = exportRangeIdx(), order = idxs.slice();
-        if(state.pingPong) for(var j = idxs.length - 2; j >= 1; j--) order.push(idxs[j]);   // forward, then back (without repeating the end frames)
+        var order = pingPongIdx(exportRangeIdx());
         for(var k = 0; k < order.length; k++){
           if(job.cancelled){ restoreBtn(); exportEnd(job); return; }
           await addFrame(order[k]);
@@ -11301,6 +11376,7 @@
   }
   function openFxMenu(anchorEl){
     if(state.playing || fxMenu.hidden === false) return;
+    if(lockedGuard()) return;
     if(curveEdit) commitCurve();
     if(pathEdit) commitPath();
     if(gradEdit) commitGradEdit();
@@ -12942,7 +13018,9 @@
     if(layerMenuIndex === null) return;
     var frame = migrateFrame(state.frames[state.current]);
     var L = frame.layers[layerMenuIndex];
+    var hsA = takeFrameSnap();
     L.alphaLock = !L.alphaLock;
+    pushFrameOp('Toggled alpha lock', hsA, { quiet: true });
     layerMenuAlphaLock.setAttribute('aria-checked', L.alphaLock);
     layerMenuAlphaLockCheck.textContent = L.alphaLock ? '✓' : '';
     renderLayerPanel();
@@ -12953,7 +13031,9 @@
     e.stopPropagation();
     if(layerMenuIndex === null) return;
     var L = migrateFrame(state.frames[state.current]).layers[layerMenuIndex];
+    var hsL = takeFrameSnap();
     if(L.locked) delete L.locked; else L.locked = true;
+    pushFrameOp(L.locked ? 'Locked a layer' : 'Unlocked a layer', hsL, { quiet: true });
     closeLayerMenu(); renderLayerPanel(); persist();
   });
   document.getElementById('layerMenuMerge').addEventListener('click', function(e){
@@ -12965,7 +13045,9 @@
     e.stopPropagation();
     if(layerMenuIndex === null || layerMenuIndex === 0) return;
     var frame = migrateFrame(state.frames[state.current]), L = frame.layers[layerMenuIndex];
+    var hsC = takeFrameSnap();
     if(L.clip) delete L.clip; else L.clip = true;
+    pushFrameOp(L.clip ? 'Clipped a layer' : 'Unclipped a layer', hsC, { quiet: true });
     closeLayerMenu();
     renderLayerPanel(); updateLayerBackdrops(); updateActiveLayerCanvasVisibility();
     recompositeFrame(frame, state.current); persist();

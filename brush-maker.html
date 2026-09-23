@@ -394,8 +394,8 @@
 
     <div class="group brand-actions">
       <button class="btn btn-icon" id="newBtn" aria-expanded="false" title="New brush" aria-label="New brush"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/><path d="M12 12v6M9 15h6"/></svg></button>
-      <button class="btn btn-icon" id="importBtn" title="Import brush .json" aria-label="Import brush json"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg></button>
-      <input type="file" id="importFile" accept=".json,application/json" multiple style="display:none">
+      <button class="btn btn-icon" id="importBtn" title="Import brush — .json, .abr (Photoshop), .gbr / .gih (GIMP · Krita)" aria-label="Import brush"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg></button>
+      <input type="file" id="importFile" accept=".json,.abr,.gbr,.gih,application/json" multiple style="display:none">
       <button class="btn btn-icon btn-primary" id="exportBtn" aria-expanded="false" title="Export brush json" aria-label="Export brush json"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M4 19h16"/></svg></button>
     </div>
 
@@ -692,7 +692,9 @@
       scale: bnum(o.scale, 1, 0.5, 3), sizeJitter: bnum(o.sizeJitter, 0, 0, 0.9), alphaJitter: bnum(o.alphaJitter, 0, 0, 0.9), angleJitter: bnum(o.angleJitter, 0, 0, 360), scatter: bnum(o.scatter, 0, 0, 2),
       grain: g, lastGrain: g ? Object.assign({}, g) : null, texture: null, lastTexture: null };
     var tx = o.texture;
-    if(tx && typeof tx === 'object' && typeof tx.src === 'string' && TEX_RE.test(tx.src) && tx.src.length <= 200000){
+    // 1.5M chars matches Scribble Reel's importer cap: high enough to cover a full-detail 480x480 tip decoded
+    // from an .abr/.gbr/.gih file (see u8ToDataURL below), while still well under the 5MB textarea/localStorage comfort zone.
+    if(tx && typeof tx === 'object' && typeof tx.src === 'string' && TEX_RE.test(tx.src) && tx.src.length <= 1500000){
       b.texture = { canvas: blankTexCanvas(64, 64), scale: bnum(tx.scale, 1, 0.25, 4), invert: !!tx.invert, repeat: tx.repeat !== false, src: tx.src, ver: 1, hist: [] };
       if(b.grain){ b.lastGrain = Object.assign({}, b.grain); b.grain = null; }   // a custom texture replaces the grain
       decodeTexture(b.texture);
@@ -1323,6 +1325,305 @@
   });
 
   /* =====================================================================
+     Binary brush-file import (.abr Photoshop / .gbr .gih GIMP-Krita) —
+     ported straight from Scribble Reel's own importer so both apps read
+     the exact same file formats the exact same way.
+     ===================================================================== */
+  function u8ToDataURL(w, h, alphaFn){   // builds a small PNG. texTile() (the only consumer) reads COVERAGE as luminance × alpha, and its
+    // "invert tip" toggle flips the luminance half only — so the shape has to live in RGB (luminance), with alpha pinned to fully opaque
+    // (255) on every pixel here. (Pinning alpha to carry the shape instead, as an earlier version of this function did, pins luminance at
+    // 1 always, which makes coverage reduce to plain alpha when un-inverted — fine — but makes "invert" compute 1-1=0 everywhere, silently
+    // zeroing the whole tip instead of flipping it. Leaving RGB at its canvas default of 0/black has the same zeroing problem un-inverted.)
+    var MAXD = 480, sc = Math.min(1, MAXD / Math.max(w, h));
+    var cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc));
+    var src = document.createElement('canvas'); src.width = w; src.height = h;
+    var sx = src.getContext('2d'), im = sx.createImageData(w, h);
+    for(var i = 0; i < w * h; i++){ var v = alphaFn(i); im.data[i * 4] = v; im.data[i * 4 + 1] = v; im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    sx.putImageData(im, 0, 0);
+    if(cw === w && ch === h) return src.toDataURL('image/png');
+    var out = document.createElement('canvas'); out.width = cw; out.height = ch;
+    out.getContext('2d').drawImage(src, 0, 0, cw, ch);
+    return out.toDataURL('image/png');
+  }
+  function unpackBits(bytes, pos, end, outLen){   // PackBits/RLE, same scheme Photoshop uses for .psd channel data; returns {data, pos} or null if it runs off the end
+    var out = new Uint8Array(outLen), oi = 0;
+    while(oi < outLen && pos < end){
+      var n = bytes[pos++]; if(n === undefined) return null;
+      if(n < 128){ var cnt = n + 1; if(pos + cnt > end || oi + cnt > outLen) return null; for(var i = 0; i < cnt; i++) out[oi++] = bytes[pos++]; }
+      else if(n > 128){ var v = bytes[pos++]; if(v === undefined) return null; var cnt2 = 257 - n; if(oi + cnt2 > outLen) return null; for(var j = 0; j < cnt2; j++) out[oi++] = v; }
+      // n === 128: no-op, per the PackBits spec
+    }
+    return oi === outLen ? { data: out, pos: pos } : null;
+  }
+  function textureBrush(name, w, h, alphaFn){
+    return { name: name.slice(0, 18), spacing: 0.1, flow: 1, aspect: 1, angle: 0, scale: 1, hardness: 1,
+      texture: { src: u8ToDataURL(w, h, alphaFn), scale: 1, invert: false, repeat: false } };
+  }
+  function numberedFallbackName(base, n){   // textureBrush() truncates to 18 chars; truncate the base FIRST so "<base> <n>" keeps its
+    var suffix = ' ' + n;                    // number instead of the number itself being cut off (which collapses every brush in a
+    return base.slice(0, Math.max(1, 18 - suffix.length)) + suffix;   // pack down to the same "<base> 1" name and hides how many imported)
+  }
+  function decodeGbrEntryAt(buf, offset, fallbackName){   // one GBR-format brush starting at byte `offset` within buf — factored out of
+    if(offset + 24 > buf.byteLength) return null;          // parseGbrBrush so parseGihBrushes can also use it, since a .gih file is just
+    var dv = new DataView(buf, offset), headerSize = dv.getUint32(0), version = dv.getUint32(4);   // this same GBR layout repeated back-to-back
+    var w = dv.getUint32(8), h = dv.getUint32(12), bytesPP = dv.getUint32(16);
+    if(w < 1 || h < 1 || w > 4000 || h > 4000 || (bytesPP !== 1 && bytesPP !== 4)) return null;
+    var nameStart = version >= 2 ? 28 : 20;
+    if(headerSize < nameStart || offset + headerSize > buf.byteLength) return null;
+    var nameBytes = new Uint8Array(buf, offset + nameStart, headerSize - nameStart), nul = nameBytes.indexOf(0);
+    var name = new TextDecoder('utf-8').decode(nameBytes.subarray(0, nul === -1 ? nameBytes.length : nul)).trim() || fallbackName;
+    var need = w * h * bytesPP, entryLen = headerSize + need;
+    if(offset + entryLen > buf.byteLength) return null;
+    var pix = new Uint8Array(buf, offset + headerSize, need);
+    // 1-channel gbr: GIMP/Krita's own docs describe this as an "ink on white paper" mask (black = fully painted, white = untouched,
+    // i.e. inverted alpha) — but real-world brush packs tested against this importer paint the opposite way (white/bright = ink), so
+    // the raw value is used as-is here. If a particular file comes in backwards, the brush editor's "Invert tip" checkbox flips it.
+    // 4-channel gbr already carries a real alpha channel, used as-is.
+    var b = textureBrush(name, w, h, bytesPP === 1 ? function(i){ return pix[i]; } : function(i){ return pix[i * 4 + 3]; });
+    return { brush: b, next: offset + entryLen };
+  }
+  function parseGbrBrush(buf, fallbackName){   // GIMP/Krita brush file: one tip per file
+    try{
+      if(buf.byteLength > 60 * 1024 * 1024 || buf.byteLength < 24) return null;
+      var r = decodeGbrEntryAt(buf, 0, fallbackName);
+      return r ? [r.brush] : null;
+    }catch(err){ return null; }
+  }
+  function parseGihBrushes(buf, fallbackName){   // GIMP "image pipe": a series of tips (an animated/randomized brush), e.g. for pressure or
+    // incremental stroke variation. Format (per GIMP's own docs): a 2-line text header — pipe name, then "<cell count> <space-separated
+    // rank/selection parameters, e.g. ncells:/dim:/rank0:/selection:>" — followed by that many ordinary .gbr-format brushes concatenated
+    // directly one after another. There's no outer per-cell length prefix (unlike ABR's samp entries): the only way to find where one
+    // cell ends and the next begins is that cell's own headerSize + width*height*bytesPerPixel, so a corrupt/unrecognized cell blocks
+    // whatever comes after it in the file — there's no structural boundary to skip to, the way there is for ABR. This app only imports
+    // the tip images themselves; which dimension is stepped by pressure/randomness/etc. has no equivalent here and is not read.
+    try{
+      if(buf.byteLength > 60 * 1024 * 1024 || buf.byteLength < 8) return null;
+      var bytes = new Uint8Array(buf);
+      var nl1 = bytes.indexOf(10); if(nl1 < 0) return null;
+      var nl2 = bytes.indexOf(10, nl1 + 1); if(nl2 < 0) return null;
+      var pipeName = new TextDecoder('utf-8').decode(bytes.subarray(0, nl1)).trim();
+      var line2 = new TextDecoder('utf-8').decode(bytes.subarray(nl1 + 1, nl2)).trim();
+      var n = parseInt(line2.split(/\s+/)[0], 10);
+      if(!(n > 0) || n > 10000) return null;
+      var offset = nl2 + 1, out = [], base = pipeName || fallbackName;
+      for(var i = 0; i < n && out.length < 24 && offset < buf.byteLength; i++){
+        var r = decodeGbrEntryAt(buf, offset, numberedFallbackName(base, out.length + 1));
+        if(!r) break;
+        out.push(r.brush);
+        offset = r.next;
+      }
+      return out.length ? out : null;
+    }catch(err){ return null; }
+  }
+  function abrSampleToBrush(s, name){
+    var w = s.w, h = s.h, depth = s.depth, row = s.bytesPerRow, px = s.pixels;
+    return textureBrush(name, w, h, function(i){
+      var x = i % w, y = (i / w) | 0;
+      if(depth === 8) return px[y * row + x];
+      if(depth === 16) return px[y * row + x * 2];   // high byte of the 16-bit value
+      return ((px[y * row + (x >> 3)] >> (7 - (x & 7))) & 1) ? 255 : 0;   // depth === 1
+    });
+  }
+  function decodeAbrPixelBlock(dv, bytes, p, end){   // shared tail: top/left/bottom/right + depth + compression + pixel data — same for legacy and v6+ sampled entries
+    if(p + 19 > end) return null;
+    var top = dv.getInt32(p), left = dv.getInt32(p + 4), bottom = dv.getInt32(p + 8), right = dv.getInt32(p + 12);
+    var w = right - left, h = bottom - top;
+    if(w < 1 || h < 1 || w > 20000 || h > 20000) return null;   // sanity bound only, not a "which entries count" filter — real texture tips can be large
+    var depth = dv.getUint16(p + 16), comp = bytes[p + 18];
+    if([1, 8, 16].indexOf(depth) === -1 || (comp !== 0 && comp !== 1)) return null;
+    var dataStart = p + 19, bytesPerRow = Math.ceil(w * depth / 8), rawLen = bytesPerRow * h, pix;
+    if(comp === 0){
+      if(dataStart + rawLen > end) return null;
+      pix = new Uint8Array(bytes.buffer, bytes.byteOffset + dataStart, rawLen);
+    } else {
+      var tableLen = h * 2;   // per-row compressed-length table; rows are then self-delimiting via unpackBits, so the table's values themselves don't need reading
+      if(dataStart + tableLen > end) return null;
+      var out = new Uint8Array(rawLen), oi = 0, q = dataStart + tableLen;
+      for(var r = 0; r < h; r++){
+        var res = unpackBits(bytes, q, end, bytesPerRow);
+        if(!res) return null;
+        out.set(res.data, oi); oi += bytesPerRow; q = res.pos;
+      }
+      pix = out;
+    }
+    return { top: top, left: left, w: w, h: h, depth: depth, bytesPerRow: bytesPerRow, pixels: pix };
+  }
+  function readAbrPascalID(bytes, pos, end){   // 1-byte length + that many raw chars (samp entry's UUID "key")
+    if(pos >= end) return null;
+    var len = bytes[pos];
+    if(pos + 1 + len > end) return null;
+    var s = '';
+    for(var i = 0; i < len; i++) s += String.fromCharCode(bytes[pos + 1 + i]);
+    return { id: s, next: pos + 1 + len };
+  }
+  function readAbrUnicodeString(dv, bytes, pos, end){   // 4-byte char count + that many UTF-16BE code units (descriptor TEXT values, legacy v2 brush names)
+    if(pos + 4 > end) return null;
+    var count = dv.getUint32(pos), p = pos + 4, byteLen = count * 2;
+    if(count > 100000 || p + byteLen > end) return null;
+    var units = [];
+    for(var i = 0; i < count; i++) units.push(dv.getUint16(p + i * 2));
+    var s = String.fromCharCode.apply(null, units).replace(/\u0000+$/, '').trim();
+    return { str: s, next: p + byteLen };
+  }
+  // ---- Photoshop "descriptor" structure (used inside the ABR "desc" resource) — this shape IS public/well-known, unlike
+  // samp's layout. Parsed generically; on anything unrecognized it throws, which the caller catches, so a descriptor shape
+  // this doesn't handle just means no names get recovered, never a crash or a desync into garbage data.
+  function readAbrDescID(bytes, pos, end){   // 4-byte length; if 0, next 4 bytes ARE the id (e.g. 'Nm  '); else that many bytes
+    if(pos + 4 > end) throw 0;
+    var len = dv32(bytes, pos), p = pos + 4;
+    if(len === 0){
+      if(p + 4 > end) throw 0;
+      return { id: String.fromCharCode(bytes[p], bytes[p + 1], bytes[p + 2], bytes[p + 3]), next: p + 4 };
+    }
+    if(len > 10000 || p + len > end) throw 0;
+    var s = '';
+    for(var i = 0; i < len; i++) s += String.fromCharCode(bytes[p + i]);
+    return { id: s, next: p + len };
+  }
+  function dv32(bytes, p){ return ((bytes[p] << 24) | (bytes[p + 1] << 16) | (bytes[p + 2] << 8) | bytes[p + 3]) >>> 0; }
+  function readAbrDescValue(dv, bytes, pos, end, depth){
+    if(depth > 12 || pos + 4 > end) throw 0;
+    var type = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]), p = pos + 4;
+    if(type === 'TEXT'){ var r = readAbrUnicodeString(dv, bytes, p, end); if(!r) throw 0; return { value: r.str, next: r.next }; }
+    if(type === 'long'){ if(p + 4 > end) throw 0; return { value: dv.getInt32(p), next: p + 4 }; }
+    if(type === 'doub'){ if(p + 8 > end) throw 0; return { value: dv.getFloat64(p), next: p + 8 }; }
+    if(type === 'bool'){ if(p + 1 > end) throw 0; return { value: !!bytes[p], next: p + 1 }; }
+    if(type === 'comp'){ if(p + 8 > end) throw 0; return { value: null, next: p + 8 }; }   // large integer; unused here
+    if(type === 'enum'){ var t1 = readAbrDescID(bytes, p, end), t2 = readAbrDescID(bytes, t1.next, end); return { value: t2.id, next: t2.next }; }
+    if(type === 'UntF'){ if(p + 12 > end) throw 0; return { value: dv.getFloat64(p + 4), next: p + 12 }; }   // 4-byte unit code + 8-byte double
+    if(type === 'tdta' || type === 'alis'){ if(p + 4 > end) throw 0; var len2 = dv.getUint32(p); if(p + 4 + len2 > end) throw 0; return { value: null, next: p + 4 + len2 }; }
+    if(type === 'Objc' || type === 'GlbO'){ var d = readAbrDescriptor(dv, bytes, p, end, depth + 1); return { value: d.value, next: d.next }; }
+    if(type === 'VlLs'){
+      if(p + 4 > end) throw 0;
+      var count = dv.getUint32(p), q = p + 4, list = [];
+      for(var i = 0; i < count; i++){ var v = readAbrDescValue(dv, bytes, q, end, depth + 1); list.push(v.value); q = v.next; }
+      return { value: list, next: q };
+    }
+    if(type === 'obj '){   // reference structure — sometimes carries a name; minimal decode, enough to not desync the rest of the file
+      if(p + 4 > end) throw 0;
+      var rcount = dv.getUint32(p), rp = p + 4, refs = [];
+      for(var j = 0; j < rcount; j++){
+        var rtype = String.fromCharCode(bytes[rp], bytes[rp + 1], bytes[rp + 2], bytes[rp + 3]); rp += 4;
+        if(rtype === 'Clss'){ var c = readAbrDescID(bytes, rp, end); rp = c.next; }
+        else if(rtype === 'Enmr'){ var c1 = readAbrDescID(bytes, rp, end), c2 = readAbrDescID(bytes, c1.next, end), c3 = readAbrDescID(bytes, c2.next, end); rp = c3.next; }
+        else if(rtype === 'Idnt' || rtype === 'indx'){ if(rp + 4 > end) throw 0; rp += 4; }
+        else if(rtype === 'name'){ var c4 = readAbrDescID(bytes, rp, end); var nm = readAbrUnicodeString(dv, bytes, c4.next, end); if(!nm) throw 0; refs.push(nm.str); rp = nm.next; }
+        else throw 0;
+      }
+      return { value: refs, next: rp };
+    }
+    throw 0;   // an unrecognized value type: abort rather than guess at its length and desync everything after it
+  }
+  function readAbrDescriptor(dv, bytes, pos, end, depth){
+    if(depth > 12) throw 0;
+    var nm = readAbrUnicodeString(dv, bytes, pos, end); if(!nm) throw 0;
+    var cls = readAbrDescID(bytes, nm.next, end);
+    if(cls.next + 4 > end) throw 0;
+    var count = dv.getUint32(cls.next), p = cls.next + 4, items = {};
+    for(var i = 0; i < count; i++){
+      var key = readAbrDescID(bytes, p, end);
+      var val = readAbrDescValue(dv, bytes, key.next, end, depth);
+      items[key.id] = val.value;
+      p = val.next;
+    }
+    return { value: items, next: p };
+  }
+  function collectAbrBrushNames(tree){   // heuristic walk: Photoshop's exact brush-preset key names aren't published, so instead of
+    var map = {}, uuidRe = /^[0-9A-Fa-f]{8}-?[0-9A-Fa-f]{4}-?[0-9A-Fa-f]{4}-?[0-9A-Fa-f]{4}-?[0-9A-Fa-f]{12}$/;   // hardcoding keys, any node with
+    (function visit(node){                                                                                          // one UUID-shaped string and one
+      if(!node || typeof node !== 'object') return;                                                                 // plain-text string is treated as
+      if(Array.isArray(node)){ node.forEach(visit); return; }                                                       // "this preset's id + its name"
+      var uuid = null, name = null;
+      for(var k in node){
+        var v = node[k];
+        if(typeof v === 'string' && v){
+          if(uuidRe.test(v)) uuid = v;
+          else if(!name && v.length <= 80 && !/^[a-zA-Z]{4}$/.test(v)) name = v;   // skip bare 4-letter type/enum codes
+        }
+      }
+      if(uuid && name) map[uuid.toLowerCase()] = name;
+      for(var k2 in node) visit(node[k2]);
+    })(tree);
+    return map;
+  }
+  function parseAbrLegacySampleEntry(dv, bytes, start, end, version){   // offsets per GIMP's abr-load plugin (abr_brush_load_v12)
+    var p = start + 6;   // 4 misc bytes + 2 spacing bytes
+    var name = null;
+    if(version === 2){
+      var r = readAbrUnicodeString(dv, bytes, p, end);
+      if(r){ name = r.str; p = r.next; }
+    }
+    p += 9;   // 1 antialiasing byte + 4 short bounds
+    var block = decodeAbrPixelBlock(dv, bytes, p, end);
+    return block ? { name: name, s: block } : null;
+  }
+  function parseAbrV6SampleEntry(dv, bytes, start, end, subversion){   // offsets per GIMP's abr-load plugin (abr_brush_load_v6)
+    var idr = readAbrPascalID(bytes, start, end);
+    if(!idr) return null;
+    var p = idr.next + (subversion === 1 ? 10 : 264);   // v6.1: short coords + unknown short; v6.2+: virtual-memory-array-list header
+    var block = decodeAbrPixelBlock(dv, bytes, p, end);
+    return block ? { id: idr.id, s: block } : null;
+  }
+  function walkAbrV6Samp(dv, bytes, blockStart, blockEnd, subversion, out, names, fallbackName){
+    var p = blockStart;
+    while(p + 4 <= blockEnd && out.length < 24){
+      var contentLen = dv.getUint32(p), contentStart = p + 4, contentEnd = contentStart + contentLen;
+      if(contentLen <= 0 || contentEnd > blockEnd) break;   // not a plausible declared length — stop rather than guess where entries are
+      var padded = contentLen % 4 === 0 ? contentLen : contentLen + (4 - contentLen % 4);
+      var nextP = contentStart + padded;
+      var r = parseAbrV6SampleEntry(dv, bytes, contentStart, contentEnd, subversion);
+      if(r) out.push(abrSampleToBrush(r.s, names[r.id.toLowerCase()] || numberedFallbackName(fallbackName, out.length + 1)));
+      if(nextP <= p) break;   // guard against a corrupt/non-advancing length
+      p = nextP;   // always advance by the entry's OWN declared length, decoded or not, so one bad entry never hides the rest
+    }
+  }
+  function parseAbrBrushes(buf, fallbackName){   // Photoshop brush file: possibly many tips
+    try{
+      if(buf.byteLength > 60 * 1024 * 1024 || buf.byteLength < 4) return null;
+      var dv = new DataView(buf), bytes = new Uint8Array(buf), major = dv.getUint16(0), out = [];
+      if(major === 1 || major === 2){   // legacy: a flat list of entries, each "computed" (skipped — no bitmap) or "sampled"
+        var count = dv.getUint16(2), pos = 4, n = 0;
+        for(var i = 0; i < count && n < 24 && pos + 6 <= buf.byteLength; i++){
+          var type = dv.getUint16(pos), size = dv.getUint32(pos + 2), entryEnd = Math.min(pos + 6 + size, buf.byteLength);
+          if(type === 2){
+            var r = parseAbrLegacySampleEntry(dv, bytes, pos + 6, entryEnd, major);
+            if(r){ out.push(abrSampleToBrush(r.s, r.name || numberedFallbackName(fallbackName, n + 1))); n++; }
+          }
+          pos = pos + 6 + size;   // always skip the whole declared record, decoded or not
+        }
+      } else {   // v6+: "8BIM" tagged resource blocks; "samp" (pixel data) and "desc" (names) are both of use here
+        var p = 4, sampBlocks = [], descBlocks = [], subversion = dv.getUint16(2);
+        while(p + 12 <= buf.byteLength){
+          var tag = String.fromCharCode(bytes[p], bytes[p + 1], bytes[p + 2], bytes[p + 3]);
+          var key = String.fromCharCode(bytes[p + 4], bytes[p + 5], bytes[p + 6], bytes[p + 7]);
+          var len = dv.getUint32(p + 8), blockStart = p + 12, blockEnd = blockStart + len;
+          if(tag !== '8BIM' || blockEnd > buf.byteLength) break;
+          if(key === 'samp') sampBlocks.push([blockStart, blockEnd]);
+          else if(key === 'desc') descBlocks.push([blockStart, blockEnd]);
+          p = blockEnd + (len % 2);   // resource blocks pad to an even length
+        }
+        var names = {};
+        descBlocks.forEach(function(b){
+          // the block's content opens with a 4-byte "descriptor version" (observed value 16) BEFORE the descriptor itself —
+          // skip it, or the version number gets misread as the descriptor's own name-string length and everything after desyncs
+          try{ names = collectAbrBrushNames(readAbrDescriptor(dv, bytes, b[0] + 4, b[1], 0).value); }catch(e){}   // best-effort only — see comment above
+        });
+        sampBlocks.forEach(function(b){ walkAbrV6Samp(dv, bytes, b[0], b[1], subversion, out, names, fallbackName); });
+      }
+      return out.length ? out : null;
+    }catch(err){ return null; }
+  }
+
+  function readBinaryBrushFile(f, ext){   // -> Promise<array of brush objects>, rejects if nothing decodable was found
+    var base = f.name.replace(/\.[^.]+$/, '');
+    return f.arrayBuffer().then(function(buf){
+      var arr = ext === 'abr' ? parseAbrBrushes(buf, base) : ext === 'gbr' ? parseGbrBrush(buf, base) : parseGihBrushes(buf, base);
+      if(!arr || !arr.length) throw new Error('no brush tips found');
+      return arr;
+    });
+  }
+
+  /* =====================================================================
      Import / export
      ===================================================================== */
   function copyText(t){
@@ -1355,7 +1656,10 @@
     var files = Array.prototype.slice.call(this.files || []), input = this, total = 0, bad = 0, left = files.length;
     if(!left) return;
     files.forEach(function(f){
-      f.text().then(function(txt){ total += importBrushes(JSON.parse(txt)); }).catch(function(){ bad++; }).then(function(){
+      var ext = (f.name.split('.').pop() || '').toLowerCase(), task;
+      if(ext === 'abr' || ext === 'gbr' || ext === 'gih') task = readBinaryBrushFile(f, ext).then(function(arr){ return importBrushes(arr); });
+      else task = f.text().then(function(txt){ return importBrushes(JSON.parse(txt)); });
+      task.then(function(n){ total += n; }).catch(function(){ bad++; }).then(function(){
         if(--left) return;
         toast(bad && !total ? 'Not a valid brush file' : 'Imported ' + total + ' brush' + (total === 1 ? '' : 'es') + (bad ? ' (' + bad + ' file' + (bad === 1 ? '' : 's') + ' skipped)' : ''));
       });

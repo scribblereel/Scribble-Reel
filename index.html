@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Scribble Reel &amp; Brush Maker — web animation tools made by Claude</title>
+<title>Free Online Animation App — Scribble Reel &amp; Brush Maker (made by Claude)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Scribble Reel and Brush Maker: web-based animation tools made by Claude. Everything runs in your browser, on your own device.">
+<meta name="description" content="Free online animation app made by Claude. Draw frame-by-frame animation with Scribble Reel and design custom brushes with Brush Maker. Runs in your browser, nothing to install.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23E8532E'/%3E%3Cstop offset='1' stop-color='%231FA98F'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M7 20c4-9 7 5 11-4s5-3 7-6' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -128,6 +128,28 @@
   .btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:transparent; }
   .btn.primary:hover{ background:var(--accent); filter:brightness(1.07); }
 
+  /* ---------- quickstart ---------- */
+  .quickstart{ padding:6px 0 34px; }
+  .quickstart-head{ margin:0 0 16px; }
+  .quickstart-head h2{ font-size:24px; margin:0 0 6px; letter-spacing:-0.02em; }
+  .quickstart-head p{ margin:0; color:var(--ink-dim); font-size:14.5px; }
+  .qs-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .qs-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:18px 20px 20px;
+  }
+  .qs-card h3{ font-size:15px; margin:0 0 12px; display:flex; align-items:center; gap:8px; letter-spacing:-0.01em; }
+  .qs-card h3 .dot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; background:var(--accent); }
+  .qs-card.alt h3 .dot{ background:var(--accent-2); }
+  .qs-steps{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:11px; counter-reset:qs; }
+  .qs-steps li{ display:flex; gap:10px; align-items:flex-start; font-size:13.5px; color:var(--ink-dim); counter-increment:qs; }
+  .qs-steps li::before{
+    content:counter(qs); flex:0 0 auto; width:19px; height:19px; border-radius:50%;
+    background:var(--panel-2); color:var(--ink); font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .qs-steps b{ color:var(--ink); font-weight:600; }
+
   /* ---------- privacy note ---------- */
   .local{
     display:flex; gap:14px; align-items:flex-start;
@@ -147,6 +169,7 @@
   @media (max-width: 680px){
     .hero{ padding-top:40px; }
     .apps{ grid-template-columns:1fr; }
+    .qs-grid{ grid-template-columns:1fr; }
     .brand-tag{ display:none; }
     .by{ font-size:12px; padding:5px 10px; }
   }
@@ -173,7 +196,7 @@
     <section class="hero">
       <svg class="squiggle" viewBox="0 0 300 60" aria-hidden="true"><path pathLength="1" d="M6 38 C 34 4, 56 4, 80 30 S 124 58, 150 30 S 196 2, 222 30 S 266 54, 294 20"/></svg>
       <h1>Animation tools, made by Claude.</h1>
-      <p class="lede">Two web apps for drawing frame-by-frame animation and designing your own brushes. <strong>Made by Claude</strong>, an AI assistant from Anthropic. Nothing to install: open one and start drawing.</p>
+      <p class="lede">A <strong>free online animation app</strong> that runs in your browser: Scribble Reel for drawing frame by frame, and Brush Maker for designing your own brushes. <strong>Made by Claude</strong>, an AI assistant from Anthropic. Nothing to install: open one and start drawing.</p>
       <p class="story"><b>The backstory:</b> a user asked Claude to make this out of spite toward a paid app, because that user is broke af.</p>
     </section>
 
@@ -192,9 +215,36 @@
           <div class="card-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/></svg></div>
           <h2>Brush Maker</h2>
         </div>
-        <p>Design custom brushes and textures with a live preview, then export them as a JSON file to import into Scribble Reel.</p>
+        <p>Design custom brushes and textures with a live preview, import existing .abr/.gbr/.gih brush files, then export as JSON to use in Scribble Reel.</p>
         <a class="btn" href="brush-maker.html">Open Brush Maker</a>
       </article>
+    </section>
+
+    <section class="quickstart" aria-label="Quickstart">
+      <div class="quickstart-head">
+        <h2>Quickstart</h2>
+        <p>New here? This is the fast way into either app.</p>
+      </div>
+      <div class="qs-grid">
+        <div class="qs-card">
+          <h3><span class="dot" aria-hidden="true"></span>Scribble Reel</h3>
+          <ol class="qs-steps">
+            <li><span><b>Open Scribble Reel</b> — no sign-up, it loads straight into a blank canvas.</span></li>
+            <li><span>Draw your first frame with the pen tool, then hit <b>add frame</b> to start the next one.</span></li>
+            <li><span>Turn on <b>onion skin</b> so you can see the previous frame while drawing the next.</span></li>
+            <li><span>Hit <b>play</b> to preview the loop, then <b>export</b> as a GIF, MP4, WebM or PNG sequence.</span></li>
+          </ol>
+        </div>
+        <div class="qs-card alt">
+          <h3><span class="dot" aria-hidden="true"></span>Brush Maker</h3>
+          <ol class="qs-steps">
+            <li><span><b>Open Brush Maker</b> and pick a starting shape for your brush tip — or import an existing <b>.abr</b> (Photoshop), <b>.gbr</b> / <b>.gih</b> (GIMP/Krita) brush file to start from.</span></li>
+            <li><span>Adjust size, spacing, jitter and texture, and watch the live stroke preview update.</span></li>
+            <li><span>Name your brush, then <b>export it as JSON</b> to save it to your device.</span></li>
+            <li><span>In Scribble Reel, open the brush picker and use <b>Import brush</b> to load the file in — it also accepts Photoshop <b>.abr</b> and GIMP/Krita <b>.gbr</b> / <b>.gih</b> brush files if you've got those.</span></li>
+          </ol>
+        </div>
+      </div>
     </section>
 
     <aside class="local">

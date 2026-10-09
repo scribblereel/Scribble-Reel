@@ -93,6 +93,13 @@
       "filmstrip filmstrip";
   }
 
+  /* Section 111: on wide (non-phone) windows the shell gets a real height. With only min-height the middle grid row
+     grew to fit every tool button (~1300px), so the whole page scrolled (and the cached canvas position went stale),
+     instead of .toolbar-scroll scrolling inside itself. Phones keep the old min-height behaviour. */
+  @media (min-width: 761px){
+    .app{ height:100vh; height:100dvh; }
+  }
+
   /* ---------- Header ---------- */
   .app-header{
     grid-area:header;
@@ -309,6 +316,30 @@
     padding:0; cursor:pointer;
   }
   .swatch[aria-pressed="true"]{ border-color:var(--ink); }
+  /* Section 112: compact toolbar on wide-but-short windows (Steam Deck, laptops, 1080p monitors). The single tall column needs ~1290px,
+     which no desktop window has, so each group now wraps its buttons into rows (2 per row, then 3 per row + a slightly wider column on
+     very short windows). Phones (<= 760px) have their own horizontal toolbar and are untouched. */
+  @media (min-width: 761px) and (max-height: 1459px){
+    .toolbar-fixed, .toolbar-scroll{ padding-left:8px; padding-right:8px; }
+    .toolbar-scroll{ gap:12px; }
+    .tool-group{ flex-direction:row; flex-wrap:wrap; justify-content:center; align-content:flex-start; gap:6px; }
+    .tool-group > .tool-label, .tool-group > .swatches, .tool-group > .color-current{ flex:0 0 100%; }
+    .tool-group > .tool-label{ text-align:center; }
+    .swatches{ grid-template-columns:repeat(3,20px); }
+    .tool-group.size-preview{ flex-direction:row; flex-wrap:wrap; justify-content:center; gap:6px; }   /* .size-preview is declared later and would otherwise keep it a column */
+  }
+  @media (min-width: 761px) and (max-height: 900px){
+    .app{ grid-template-columns:136px 1fr; }
+    .toolbar .btn-icon{ width:34px; height:34px; }
+    .toolbar-fixed{ padding-top:8px; padding-bottom:6px; }
+    .toolbar-scroll{ gap:8px; padding-top:8px; padding-bottom:8px; }
+    .swatches{ grid-template-columns:repeat(4,20px); gap:5px; }
+  }
+  @media (min-width: 761px) and (max-height: 740px){
+    .toolbar .btn-icon{ width:32px; height:32px; }
+    .toolbar-scroll{ gap:6px; padding-top:6px; padding-bottom:6px; }
+    .tool-group{ gap:4px; }
+  }
   .color-current{ position:relative; display:flex; flex-direction:column; align-items:center; gap:4px; }
   .custom-color-btn{
     width:40px;height:28px;border-radius:7px;border:1px solid var(--line);
@@ -426,7 +457,21 @@
   .onion-expand-btn:disabled{ opacity:.3; cursor:default; pointer-events:none; }
   .onion-sub{ display:flex; flex-direction:column; margin-top:8px; padding-top:9px; border-top:1px solid var(--line); }
   .onion-sub[hidden]{ display:none; }
-  .settings-popover{ width:250px; max-height:min(560px, 82vh); overflow-y:auto; }
+  .settings-popover{ width:268px; max-height:min(560px, 82vh); overflow-y:auto; gap:8px; padding:8px; }
+  /* Section 106: Settings is split into collapsible categories */
+  .settings-popover .set-cat{ border:1px solid var(--line); border-radius:10px; background:var(--panel); overflow:hidden; flex:0 0 auto; }
+  .settings-popover .set-cat-head{ display:flex; align-items:center; gap:9px; width:100%; padding:10px 11px; background:transparent; border:0; color:var(--ink); font:inherit; font-size:13px; font-weight:700; letter-spacing:.01em; text-align:left; cursor:pointer; }
+  .settings-popover .set-cat-head:hover{ background:var(--panel-2); }
+  .settings-popover .set-cat-head:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+  .settings-popover .set-cat-ico{ display:inline-flex; color:var(--accent); flex:0 0 auto; }
+  .settings-popover .set-cat-name{ flex:1 1 auto; min-width:0; }
+  .settings-popover .set-cat-chev{ flex:0 0 auto; color:var(--ink-dim); transition:transform .15s ease; }
+  .settings-popover .set-cat-head[aria-expanded="true"] .set-cat-chev{ transform:rotate(180deg); }
+  .settings-popover .set-cat-head[aria-expanded="true"]{ background:var(--panel-2); }
+  .settings-popover .set-cat-body{ display:flex; flex-direction:column; gap:0; padding:2px 11px 6px; border-top:1px solid var(--line); }
+  .settings-popover .set-cat-body[hidden]{ display:none; }
+  .settings-popover .set-cat-body > .popover-section{ border-top:1px solid var(--line); padding:10px 0; gap:6px; }
+  .settings-popover .set-cat-body > .popover-section:first-child{ border-top:none; }
 
 
   .layers-popover{
@@ -642,6 +687,9 @@
   .export-option:disabled{ opacity:.4; cursor:not-allowed; }
   .export-option:disabled:hover{ background:transparent; border-color:transparent; }
   .export-popover-divider{ height:1px; background:var(--line); margin:2px 4px; }
+  .export-group-label{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-dim); padding:8px 6px 2px; margin-top:2px; border-top:1px solid var(--line); }
+  .export-popover-title + .export-group-label, .export-popover .ap-row + .export-group-label{ border-top:0; margin-top:0; padding-top:4px; }
+  .export-popover .export-option{ padding:6px 9px; gap:1px; }
   .sv-canvas{ width:100%; height:110px; border-radius:8px; display:block; cursor:crosshair; touch-action:none; }
   .hue-canvas{ width:100%; height:14px; border-radius:7px; display:block; cursor:crosshair; touch-action:none; }
   .popover-row{ display:flex; align-items:center; gap:8px; }
@@ -744,6 +792,8 @@
     :root:not([data-theme="light"]) .frame-guide{ --guide-c:rgba(255,255,255,.4); box-shadow:0 0 0 9999px rgba(0,0,0,.4); }
   }
   :root[data-theme="dark"] .frame-guide{ --guide-c:rgba(255,255,255,.4); box-shadow:0 0 0 9999px rgba(0,0,0,.4); }
+  .canvas-stage.no-bleed-tint .frame-guide{ box-shadow:none !important; }   /* Bleed area dialog → tint off: keep the frame outline, drop the dimming */
+  .resize-preset[aria-pressed="true"]{ background:var(--accent); color:#fff; border-color:transparent; }
   .frame-guide-label{
     position:absolute; top:-1px; left:-1px; transform:translateY(-100%);
     font-size:9px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
@@ -772,6 +822,9 @@
   .ruler-field{ display:flex; align-items:center; gap:7px; margin-top:3px; padding:7px 9px 4px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-dim); }
   .ruler-field[hidden]{ display:none; }
   .ruler-field input{ width:70px; margin-left:auto; padding:4px 6px; font:inherit; color:var(--ink); background:var(--panel-2); border:1px solid var(--line); border-radius:6px; }
+  .stage-wrap.is-playing #pixelGrid{ display:none !important; }
+  #tileCanvas{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; display:none; }
+  #pixelGrid{ position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; display:none; }
   #gridCanvas{ pointer-events:none; display:none; }
   .stage-wrap.show-grid:not(.is-playing) #gridCanvas{ display:block; }
   #drawCanvas{ cursor:crosshair; }
@@ -1460,7 +1513,7 @@
       <button class="btn btn-icon" id="newProjectBtn" title="Start a new project" aria-label="Start a new project"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M13 3v6h6"/><path d="M12 12v6M9 15h6"/></svg></button>
       <button class="btn btn-icon" id="importBtn" aria-expanded="false" title="Import an image, GIF or video" aria-label="Import an image, GIF or video"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 19h16"/></svg></button>
       <input type="file" id="importImageInput" accept="image/*" style="display:none">
-      <input type="file" id="importVideoInput" accept="video/*" style="display:none">
+      <input type="file" id="importVideoInput" accept="video/*,.mkv,.webm,.mov,.mp4,.m4v" style="display:none">
       <input type="file" id="importGifInput" accept="image/gif,.gif" style="display:none">
       <button class="btn btn-icon" id="exportPngBtn" title="Save current frame as an image" aria-label="Save current frame as an image"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>
       <button class="btn btn-icon btn-primary" id="exportBtn" aria-expanded="false" title="Export animation" aria-label="Export animation"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M4 19h16"/></svg></button>
@@ -1483,7 +1536,10 @@
       </div>
 
       <div class="onion-popover settings-popover" id="settingsPopover" role="dialog" aria-label="Settings" hidden>
-        <div class="popover-section" style="border-top:none; padding-top:0;">
+        <div class="set-cat" data-cat="playback">
+          <button type="button" class="set-cat-head" aria-expanded="false" aria-controls="setCat_playback"><span class="set-cat-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg></span><span class="set-cat-name">Playback</span><svg class="set-cat-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="set-cat-body" id="setCat_playback" hidden>
+        <div class="popover-section">
           <div class="popover-row-between">
             <span class="onion-title">Playback speed</span>
             <span class="onion-count-val" id="fpsPopoverVal">8 fps</span>
@@ -1501,7 +1557,6 @@
             <button type="button" class="fps-preset" data-fps="60">60</button>
           </div>
         </div>
-
         <div class="popover-section">
           <div class="popover-row-between">
             <span class="setting-title">Loop playback</span>
@@ -1511,7 +1566,6 @@
             </label>
           </div>
         </div>
-
         <div class="popover-section">
           <div class="popover-row-between">
             <span><span class="setting-title">Ping-pong</span> <span class="setting-note">(forward, then back)</span></span>
@@ -1521,50 +1575,11 @@
             </label>
           </div>
         </div>
-
-        <div class="popover-section">
-          <div class="popover-row-between" style="gap:12px;">
-            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
-              <span class="setting-title">Crisp pixels</span>
-              <span class="setting-note">Sharp pixel edges when you zoom in, and when imports are scaled up. Off = smooth.</span>
-            </span>
-            <label class="switch">
-              <input type="checkbox" id="crispPixelsToggle" aria-label="Crisp pixels">
-              <span class="switch-track"><span class="switch-thumb"></span></span>
-            </label>
           </div>
         </div>
-
-        <div class="popover-section">
-          <div class="popover-row-between" style="gap:12px;">
-            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
-              <span class="setting-title">Separate settings per tool</span>
-              <span class="setting-note">Pen, eraser, fill, line, smudge and text each remember their own color, size, opacity and brush.</span>
-            </span>
-            <label class="switch">
-              <input type="checkbox" id="perToolToggle" aria-label="Separate settings per tool">
-              <span class="switch-track"><span class="switch-thumb"></span></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="popover-section">
-          <div class="popover-row-between">
-            <span class="setting-title">Reference image</span>
-            <div class="fps-presets">
-              <button type="button" class="sym-btn" id="refPickBtn" title="Faint image to trace over — never exported">Choose…</button>
-              <button type="button" class="sym-btn" id="refClearBtn" hidden>Clear</button>
-            </div>
-          </div>
-          <input type="range" id="refOpacity" min="5" max="100" step="5" value="35" hidden aria-label="Reference image opacity" style="margin-top:6px;">
-          <div id="refSizeRow" class="popover-row-between" hidden style="margin-top:6px; gap:8px;">
-            <span class="onion-count-val" style="font-size:11px;">Size</span>
-            <input type="range" id="refScale" min="10" max="300" step="5" value="100" aria-label="Reference image size" style="flex:1;">
-            <span class="onion-count-val" id="refScaleVal" style="font-size:11px; min-width:36px; text-align:right;">100%</span>
-          </div>
-          <input type="file" id="refInput" accept="image/*" style="display:none">
-        </div>
-
+        <div class="set-cat" data-cat="drawing">
+          <button type="button" class="set-cat-head" aria-expanded="false" aria-controls="setCat_drawing"><span class="set-cat-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="set-cat-name">Drawing</span><svg class="set-cat-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="set-cat-body" id="setCat_drawing" hidden>
         <div class="popover-section">
           <div class="popover-row-between">
             <span class="setting-title">Stroke smoothing</span>
@@ -1586,7 +1601,47 @@
             <input type="range" id="smoothAmountRange" min="5" max="95" step="5" value="55" aria-label="Stroke smoothness amount">
           </div>
         </div>
-
+        <div class="popover-section">
+          <div class="popover-row-between" style="gap:12px;">
+            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+              <span class="setting-title">Separate settings per tool</span>
+              <span class="setting-note">Pen, eraser, fill, line, smudge and text each remember their own color, size, opacity and brush.</span>
+            </span>
+            <label class="switch">
+              <input type="checkbox" id="perToolToggle" aria-label="Separate settings per tool">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+        <div class="popover-section">
+          <div class="popover-row-between" style="gap:12px;">
+            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+              <span class="setting-title">Pixel art drawing</span>
+              <span class="setting-note">Pen, eraser and line draw hard, pixel-snapped squares (Size = pixels, no smoothing). Size 1 also cleans up stair-step corners.</span>
+            </span>
+            <label class="switch">
+              <input type="checkbox" id="pixelModeToggle" aria-label="Pixel art drawing">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+        <div class="popover-section">
+          <div class="popover-row-between" style="gap:12px;">
+            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+              <span class="setting-title">Crisp pixels</span>
+              <span class="setting-note">Sharp pixel edges when you zoom in, and when imports are scaled up. Off = smooth.</span>
+            </span>
+            <label class="switch">
+              <input type="checkbox" id="crispPixelsToggle" aria-label="Crisp pixels">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+          </div>
+        </div>
+        <div class="set-cat" data-cat="guides">
+          <button type="button" class="set-cat-head" aria-expanded="false" aria-controls="setCat_guides"><span class="set-cat-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span><span class="set-cat-name">Guides &amp; overlays</span><svg class="set-cat-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="set-cat-body" id="setCat_guides" hidden>
         <div class="popover-section">
           <div class="popover-row-between">
             <span class="onion-title">Onion skin</span>
@@ -1637,7 +1692,6 @@
             <input type="range" id="onionAfterRange" min="0" max="3" step="1" value="1" aria-label="Frames after">
           </div>
         </div>
-
         <div class="popover-section">
           <div class="popover-row-between">
             <span class="onion-title" title="Ghost one chosen frame underneath, no matter where you scrub to — like taping a reference drawing under the page">Light table</span>
@@ -1658,7 +1712,48 @@
             <input type="range" id="lightTableOpacityRange" min="10" max="70" step="2" value="34" aria-label="Light table opacity">
           </div>
         </div>
-
+        <div class="popover-section">
+          <div class="popover-row-between">
+            <span class="setting-title">Reference image</span>
+            <div class="fps-presets">
+              <button type="button" class="sym-btn" id="refPickBtn" title="Faint image to trace over — never exported">Choose…</button>
+              <button type="button" class="sym-btn" id="refClearBtn" hidden>Clear</button>
+            </div>
+          </div>
+          <input type="range" id="refOpacity" min="5" max="100" step="5" value="35" hidden aria-label="Reference image opacity" style="margin-top:6px;">
+          <div id="refSizeRow" class="popover-row-between" hidden style="margin-top:6px; gap:8px;">
+            <span class="onion-count-val" style="font-size:11px;">Size</span>
+            <input type="range" id="refScale" min="10" max="300" step="5" value="100" aria-label="Reference image size" style="flex:1;">
+            <span class="onion-count-val" id="refScaleVal" style="font-size:11px; min-width:36px; text-align:right;">100%</span>
+          </div>
+          <input type="file" id="refInput" accept="image/*" style="display:none">
+        </div>
+        <div class="popover-section">
+          <div class="popover-row-between" style="gap:12px;">
+            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+              <span class="setting-title">Pixel grid</span>
+              <span class="setting-note">Draws a line between every pixel once you zoom in far enough.</span>
+            </span>
+            <label class="switch">
+              <input type="checkbox" id="pixelGridToggle" aria-label="Pixel grid">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+        <div class="popover-section">
+          <div class="popover-row-between" style="gap:12px;">
+            <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+              <span class="setting-title">Tiled preview</span>
+              <span class="setting-note">Shows copies of the frame in the bleed area so sprites and textures can be drawn to connect. Pen and eraser strokes wrap around the edges. Adds a bleed area for you if there is none.</span>
+            </span>
+            <button type="button" class="layer-blend" id="tileBtn" aria-haspopup="listbox" aria-label="Tiled preview" style="flex:0 0 auto; min-width:104px; justify-content:space-between; padding:6px 8px;"><span>Off</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+          </div>
+        </div>
+          </div>
+        </div>
+        <div class="set-cat" data-cat="canvas">
+          <button type="button" class="set-cat-head" aria-expanded="false" aria-controls="setCat_canvas"><span class="set-cat-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span><span class="set-cat-name">Canvas</span><svg class="set-cat-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="set-cat-body" id="setCat_canvas" hidden>
         <div class="popover-section">
           <span class="setting-title">Canvas background</span>
           <div style="display:flex; align-items:center; gap:8px;">
@@ -1697,7 +1792,6 @@
           </div>
           <button type="button" class="btn" id="bgClearBtn" style="font-size:11px; padding:6px 10px; margin-top:2px; width:100%; justify-content:center;">Checkerboard (transparent)</button>
         </div>
-
         <div class="popover-section">
           <span class="setting-title">Canvas size</span>
           <div class="popover-row-between" style="margin-top:2px;">
@@ -1705,7 +1799,6 @@
             <button type="button" class="btn" id="openResizeBtn" style="font-size:11px; padding:6px 10px;">Resize…</button>
           </div>
         </div>
-
         <div class="popover-section">
           <span class="setting-title">Bleed area</span>
           <div class="popover-row-between" style="margin-top:2px;">
@@ -1714,15 +1807,6 @@
           </div>
           <span class="setting-note">Extra drawing space around the frame, for art that pans or reframes into view later.</span>
         </div>
-
-        <div class="popover-section">
-          <span class="setting-title">Keyboard</span>
-          <div class="popover-row-between" style="margin-top:2px;">
-            <span class="setting-note">Shortcuts &amp; tool rebinding</span>
-            <button type="button" class="btn" id="openShortcutsBtn" style="font-size:11px; padding:6px 10px;">View…</button>
-          </div>
-        </div>
-
         <div class="popover-section">
           <span class="setting-title">Filmstrip thumbnail size</span>
           <div class="fps-presets" style="margin-top:6px;">
@@ -1731,13 +1815,26 @@
             <button type="button" class="fs-size-btn" data-size="large" aria-pressed="false">L</button>
           </div>
         </div>
-
+          </div>
+        </div>
+        <div class="set-cat" data-cat="general">
+          <button type="button" class="set-cat-head" aria-expanded="false" aria-controls="setCat_general"><span class="set-cat-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span><span class="set-cat-name">General</span><svg class="set-cat-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="set-cat-body" id="setCat_general" hidden>
+        <div class="popover-section">
+          <span class="setting-title">Keyboard</span>
+          <div class="popover-row-between" style="margin-top:2px;">
+            <span class="setting-note">Shortcuts &amp; tool rebinding</span>
+            <button type="button" class="btn" id="openShortcutsBtn" style="font-size:11px; padding:6px 10px;">View…</button>
+          </div>
+        </div>
         <div class="popover-section">
           <span class="setting-title">Whole project</span>
           <button type="button" class="btn" id="invertAllBtn" style="font-size:11px; padding:6px 10px; margin-top:2px; width:100%; justify-content:center;" title="Invert colors on every layer of every frame">Invert whole canvas</button>
           <span class="setting-note">All frames and layers. Run it again to flip back.</span>
           <button type="button" class="btn" id="reverseFramesBtn" style="font-size:11px; padding:6px 10px; margin-top:8px; width:100%; justify-content:center;" title="Play the animation backwards">Reverse frame order</button>
           <span class="setting-note">Run it again to flip back.</span>
+        </div>
+          </div>
         </div>
       </div>
 
@@ -1794,42 +1891,45 @@
 
     <div class="export-popover" id="importPopover" role="dialog" aria-label="Import" hidden>
       <div class="export-popover-title">Import</div>
-      <button type="button" class="export-option" id="importImageOptBtn">
+      <div class="export-group-label">Pictures &amp; video</div>
+      <button type="button" class="export-option" id="importImageOptBtn" title="Onto the active layer — move/scale/rotate before it&#x27;s baked in">
         <span class="export-option-name">Image</span>
-        <span class="export-option-desc">Onto the active layer — move/scale/rotate before it's baked in</span>
+        <span class="export-option-desc">Onto the active layer</span>
       </button>
-      <button type="button" class="export-option" id="importGifOptBtn">
+      <button type="button" class="export-option" id="importGifOptBtn" title="Every frame added 1 by 1, keeping each frame&#x27;s timing">
         <span class="export-option-name">GIF</span>
-        <span class="export-option-desc">Every frame added 1 by 1, keeping each frame's timing</span>
+        <span class="export-option-desc">One frame per GIF frame, timing kept</span>
       </button>
-      <button type="button" class="export-option" id="importSpriteOptBtn">
-        <span class="export-option-name">Sprite sheet</span>
-        <span class="export-option-desc">Set the grid, then pick which cells become frames and in what order</span>
-      </button>
-      <button type="button" class="export-option" id="importSeqOptBtn">
-        <span class="export-option-name">Image sequence</span>
-        <span class="export-option-desc">Several images (or a .zip of them) — one frame each, in name order</span>
-      </button>
-      <button type="button" class="export-option" id="importSeqLayersOptBtn">
-        <span class="export-option-name">Image sequence (as layers)</span>
-        <span class="export-option-desc">Several images (or a .zip of them) — one new layer each on the current frame, in name order</span>
-      </button>
-      <button type="button" class="export-option" id="importPsdOptBtn">
-        <span class="export-option-name">Photoshop / Procreate / Clip Studio as layers</span>
-        <span class="export-option-desc">.psd, .procreate or .clip — each pixel layer becomes a layer on the current frame (name, opacity, visibility, blend mode kept)</span>
-      </button>
-      <button type="button" class="export-option" id="importAudioOptBtn">
-        <span class="export-option-name">Audio</span>
-        <span class="export-option-desc">Sound, music or voice tracks that play along with the animation — add as many as you like</span>
-      </button>
-      <button type="button" class="export-option" id="importVideoOptBtn">
+      <button type="button" class="export-option" id="importVideoOptBtn" title="Sliced into new frames at the project&#x27;s FPS">
         <span class="export-option-name">Video</span>
-        <span class="export-option-desc">Sliced into new frames at the project's FPS</span>
+        <span class="export-option-desc">MP4, WebM, MKV… sliced into frames</span>
       </button>
-      <div class="export-popover-divider"></div>
-      <button type="button" class="export-option" id="importProjectOptBtn">
+      <button type="button" class="export-option" id="importSeqOptBtn" title="Several images (or a .zip of them) — one frame each, in name order">
+        <span class="export-option-name">Image sequence</span>
+        <span class="export-option-desc">Images or a .zip, one frame each</span>
+      </button>
+      <button type="button" class="export-option" id="importSpriteOptBtn" title="Set the grid, then pick which cells become frames and in what order">
+        <span class="export-option-name">Sprite sheet</span>
+        <span class="export-option-desc">Pick grid cells as frames</span>
+      </button>
+      <div class="export-group-label">Layers</div>
+      <button type="button" class="export-option" id="importSeqLayersOptBtn" title="Several images (or a .zip of them) — one new layer each on the current frame, in name order">
+        <span class="export-option-name">Image sequence (as layers)</span>
+        <span class="export-option-desc">Images or a .zip, one layer each</span>
+      </button>
+      <button type="button" class="export-option" id="importPsdOptBtn" title=".psd, .procreate, .clip, .kra (Krita) or .aseprite — each pixel layer becomes a layer on the current frame (name, opacity, visibility, blend mode kept)">
+        <span class="export-option-name">Layered file</span>
+        <span class="export-option-desc">.psd .procreate .clip .kra .aseprite</span>
+      </button>
+      <div class="export-group-label">Sound</div>
+      <button type="button" class="export-option" id="importAudioOptBtn" title="Sound, music or voice tracks that play along with the animation — add as many as you like">
+        <span class="export-option-name">Audio</span>
+        <span class="export-option-desc">Music, sound or voice tracks</span>
+      </button>
+      <div class="export-group-label">Project</div>
+      <button type="button" class="export-option" id="importProjectOptBtn" title="Open a project .zip — replaces everything currently open">
         <span class="export-option-name">Project file</span>
-        <span class="export-option-desc">Open a project .zip — replaces everything currently open</span>
+        <span class="export-option-desc">Open a .zip, replaces what's open</span>
       </button>
     </div>
     <input type="file" id="importProjectInput" accept=".zip,application/zip" style="display:none">
@@ -1848,38 +1948,53 @@
         <div class="seg" id="exportBgSeg" role="group" aria-label="Export background"></div>
         <span class="setting-note" id="exportBgNote" style="text-align:right;"></span>
       </div>
-      <button type="button" class="export-option" id="exportGifBtn">
+      <div class="export-group-label">Animation</div>
+      <button type="button" class="export-option" id="exportGifBtn" title="Animated image, plays anywhere">
         <span class="export-option-name">GIF</span>
-        <span class="export-option-desc">Animated image, plays anywhere</span>
+        <span class="export-option-desc">Plays anywhere</span>
       </button>
-      <button type="button" class="export-option" id="exportMp4Btn">
+      <button type="button" class="export-option" id="exportMp4Btn" title="Video, smaller file size">
         <span class="export-option-name">MP4</span>
-        <span class="export-option-desc">Video, smaller file size</span>
+        <span class="export-option-desc">Small video file</span>
       </button>
-      <button type="button" class="export-option" id="exportWebmBtn">
+      <button type="button" class="export-option" id="exportWebmBtn" title="Video, best quality">
         <span class="export-option-name">WebM</span>
-        <span class="export-option-desc">Video, best quality</span>
+        <span class="export-option-desc">Best-quality video</span>
       </button>
-      <button type="button" class="export-option" id="exportApngBtn">
+      <button type="button" class="export-option" id="exportMkvBtn" title="Matroska video — opens in VLC and most video editors. Chrome / Edge only.">
+        <span class="export-option-name">MKV</span>
+        <span class="export-option-desc">Video for VLC &amp; editors</span>
+      </button>
+      <button type="button" class="export-option" id="exportApngBtn" title="Lossless with transparency — plays in browsers &amp; most chat apps">
         <span class="export-option-name">Animated PNG</span>
-        <span class="export-option-desc">Lossless with transparency — plays in browsers &amp; most chat apps</span>
+        <span class="export-option-desc">Lossless, keeps transparency</span>
       </button>
-      <button type="button" class="export-option" id="exportSeqBtn">
+      <div class="export-group-label">Image files</div>
+      <button type="button" class="export-option" id="exportSeqBtn" title="One transparent PNG per frame in a .zip, plus timing — for video editors &amp; other animation apps">
         <span class="export-option-name">PNG sequence</span>
-        <span class="export-option-desc">One transparent PNG per frame in a .zip, plus timing — for video editors &amp; other animation apps</span>
+        <span class="export-option-desc">One PNG per frame, in a .zip</span>
       </button>
-      <button type="button" class="export-option" id="exportPsdBtn">
-        <span class="export-option-name">Layered PSD</span>
-        <span class="export-option-desc">The current frame as a Photoshop file — every layer, group, opacity &amp; blend mode kept (masks baked in)</span>
-      </button>
-      <button type="button" class="export-option" id="exportSheetBtn">
+      <button type="button" class="export-option" id="exportSheetBtn" title="Every frame in one transparent PNG grid — for games">
         <span class="export-option-name">Sprite sheet</span>
-        <span class="export-option-desc">Every frame in one transparent PNG grid — for games</span>
+        <span class="export-option-desc">All frames in one PNG grid</span>
       </button>
-      <div class="export-popover-divider"></div>
-      <button type="button" class="export-option" id="exportProjectBtn">
+      <div class="export-group-label">For other apps</div>
+      <button type="button" class="export-option" id="exportPsdBtn" title="The current frame as a Photoshop file — every layer, group, opacity &amp; blend mode kept (masks baked in)">
+        <span class="export-option-name">Layered PSD</span>
+        <span class="export-option-desc">Current frame, layers kept</span>
+      </button>
+      <button type="button" class="export-option" id="exportKraBtn" title="The current frame as a .kra file — every layer, nested group, opacity &amp; blend mode kept (masks &amp; clipping baked in)">
+        <span class="export-option-name">Krita file</span>
+        <span class="export-option-desc">Current frame, layers kept</span>
+      </button>
+      <button type="button" class="export-option" id="exportAseBtn" title="Every frame with its timing, as an animated .aseprite — layers, groups &amp; opacity kept (masks &amp; clipping baked in)">
+        <span class="export-option-name">Aseprite file</span>
+        <span class="export-option-desc">All frames, layers kept</span>
+      </button>
+      <div class="export-group-label">Project</div>
+      <button type="button" class="export-option" id="exportProjectBtn" title="Every frame, layer &amp; setting — reopen it here later, back it up, or move it to another device">
         <span class="export-option-name">Project file</span>
-        <span class="export-option-desc">Every frame, layer &amp; setting — reopen it here later, back it up, or move it to another device</span>
+        <span class="export-option-desc">Everything, to reopen or back up</span>
       </button>
     </div>
   </header>
@@ -2053,7 +2168,9 @@
       <canvas id="belowLayersCanvas" width="1536" height="972"></canvas>
       <canvas id="drawCanvas" width="1536" height="972"></canvas>
       <canvas id="aboveLayersCanvas" width="1536" height="972"></canvas>
+      <canvas id="tileCanvas" width="1536" height="972" aria-hidden="true"></canvas>
       <canvas id="gridCanvas" width="1536" height="972" aria-hidden="true"></canvas>
+      <div id="pixelGrid" aria-hidden="true"></div>
       <canvas id="lassoCanvas" width="1536" height="972"></canvas>
       <canvas id="cameraCanvas" width="1536" height="972" aria-hidden="true" hidden style="pointer-events:none; z-index:5;"></canvas>
       <canvas id="tweenCanvas" width="1536" height="972" aria-hidden="true" hidden style="pointer-events:none; z-index:4;"></canvas>
@@ -2377,7 +2494,7 @@
     </div>
     <input type="file" id="importSeqInput" accept="image/*,.zip,application/zip" multiple style="display:none">
     <input type="file" id="importSeqLayersInput" accept="image/*,.zip,application/zip" multiple style="display:none">
-    <input type="file" id="importPsdInput" accept=".psd,.procreate,.clip" style="display:none">
+    <input type="file" id="importPsdInput" accept=".psd,.procreate,.clip,.kra,.aseprite,.ase" style="display:none">
     <input type="file" id="importAudioInput" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac,.opus" multiple style="display:none">
     <div class="sprockets"></div>
     <div class="filmstrip-viewport">
@@ -2781,6 +2898,26 @@
       </label>
     </div>
     <p class="resize-ratio-note" id="newProjectRatioNote">16:9</p>
+    <div class="popover-row-between" style="gap:12px; margin:4px 0 10px;">
+      <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+        <span class="setting-title">Keep proportions</span>
+        <span class="setting-note">Change width or height and the other follows, keeping the ratio (e.g. 1080p: set 720 and the width becomes 1280).</span>
+      </span>
+      <label class="switch">
+        <input type="checkbox" id="newProjectKeepRatio" class="keep-ratio-toggle" aria-label="Keep proportions">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label>
+    </div>
+    <div class="popover-row-between" style="gap:12px; margin:4px 0 10px;">
+      <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+        <span class="setting-title">No bleed area</span>
+        <span class="setting-note">The canvas is exactly the frame, with no extra space around it. You can add bleed any time from Canvas size.</span>
+      </span>
+      <label class="switch">
+        <input type="checkbox" id="npNoBleed" aria-label="No bleed area">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label>
+    </div>
 
     <div class="resize-presets-group">
       <span class="popover-section-label">Aspect ratio</span>
@@ -2867,8 +3004,8 @@
           <button type="button" class="btn btn-danger-ghost" id="npImportClearBtn" style="font-size:11px; padding:6px 10px; display:none;">Clear</button>
         </div>
       </div>
-      <span class="setting-note">Pick an image, GIF, video or Photoshop (.psd) file — the size above auto-fills to match, and it becomes your first frame(s) (a PSD becomes layers on the first frame).</span>
-      <input type="file" id="npImportInput" accept="image/*,video/*,.psd,.procreate,.clip" style="display:none">
+      <span class="setting-note">Pick an image, GIF, video, or a layered file (.psd, .procreate, .clip, .kra, .aseprite) — the size above auto-fills to match, and it becomes your first frame(s) (a layered file becomes layers on the first frame).</span>
+      <input type="file" id="npImportInput" accept="image/*,video/*,.mkv,.webm,.mov,.mp4,.m4v,.psd,.procreate,.clip,.kra,.aseprite,.ase" style="display:none">
     </div>
     </div><!-- /modal-scroll-body -->
 
@@ -2896,6 +3033,16 @@
       </label>
     </div>
     <p class="resize-ratio-note" id="resizeRatioNote">16:9</p>
+    <div class="popover-row-between" style="gap:12px; margin:4px 0 10px;">
+      <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+        <span class="setting-title">Keep proportions</span>
+        <span class="setting-note">Change width or height and the other follows, keeping the ratio (e.g. 1080p: set 720 and the width becomes 1280).</span>
+      </span>
+      <label class="switch">
+        <input type="checkbox" id="resizeKeepRatio" class="keep-ratio-toggle" aria-label="Keep proportions">
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label>
+    </div>
 
     <div class="resize-presets-group">
       <span class="popover-section-label">Aspect ratio</span>
@@ -2964,6 +3111,17 @@
         <button type="button" class="resize-preset bleed-preset" data-x="60" data-y="80">Default</button>
         <button type="button" class="resize-preset bleed-preset" data-x="120" data-y="150">Large</button>
       </div>
+    </div>
+
+    <div class="popover-row-between" style="gap:12px; margin:2px 0 10px;">
+      <span style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+        <span class="setting-title">Tint the bleed area</span>
+        <span class="setting-note">Dims everything outside the frame. Turn off to see the bleed area in its true colors (the frame outline stays).</span>
+      </span>
+      <label class="switch">
+        <input type="checkbox" id="bleedTintToggle" aria-label="Tint the bleed area" checked>
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label>
     </div>
 
     <p class="resize-mode-note">The frame and every existing pixel keep their exact position — nothing is scaled. Shrinking the bleed permanently crops away any art that falls outside the new area.</p>
@@ -3230,6 +3388,13 @@
   }
   // resize / visualViewport events can fire many times per frame (esp. mobile keyboards and pinch);
   // coalesce them into one layout + grid redraw per animation frame.
+  // Section 111: the cached canvas position is in window coordinates, so anything that scrolls the page (or a panel the
+  // stage sits in) used to leave it stale and strokes landed 'scroll-distance' away from the pen. Re-measure on scroll.
+  window.addEventListener('scroll', function(e){
+    var t = e.target;
+    if(t && t !== document && t.nodeType === 1 && !(t.contains && t.contains(canvasStage))) return;   // unrelated inner scroller (layers list, filmstrip...)
+    if(typeof naturalStageRect !== 'undefined' && naturalStageRect){ captureNaturalStageRect(); scheduleFit(); }
+  }, { capture: true, passive: true });
   var fitRaf = 0;
   function scheduleFit(){
     if(fitRaf) return;
@@ -3758,6 +3923,15 @@
   function commitLine(a, b){
     pushUndoState();
     beginDrawClip();
+    if(state.pixelMode){
+      var keepTool = state.tool; pixelReset();
+      state.tool = 'pen';   // pixelPlot reads the tool: a line is always paint, never erase
+      pixelLine(Math.floor(a.x), Math.floor(a.y), Math.floor(b.x), Math.floor(b.y), pixelPlot);
+      state.tool = keepTool; drawCtx.globalAlpha = 1;
+      endDrawClip();
+      commitCurrentFrame();
+      return;
+    }
     drawCtx.lineJoin = 'round';
     drawCtx.lineCap = 'round';
     drawCtx.lineWidth = state.size;
@@ -4921,6 +5095,7 @@
     // undo the partial stroke that was started right before the pinch began
     // (pointer capture is intentionally left in place so we keep tracking
     // this finger's position for the pinch gesture even if it moves off-canvas)
+    pixelReset();
     var bk = strokeRedoBackup; strokeRedoBackup = null;
     if(!undoStack.length) return;
     var top = undoStack[undoStack.length - 1];
@@ -10150,13 +10325,13 @@
       req.onerror = function(){ resolve(); };
     });
   }
-  function createProjectAndSwitch(w, h, pendingImport){
+  function createProjectAndSwitch(w, h, pendingImport, noBleed){
     flushSaves(function(){
       var reg = readProjects(), id = newProjectId(), n = reg.length + 1;
       reg.push({ id: id, name: 'Untitled ' + n, updated: Date.now() }); writeProjects(reg);
       function proceed(){
         try{
-          localStorage.setItem(PROJ_PENDING_KEY, JSON.stringify({ w: w, h: h, importKind: (pendingImport && pendingImport.file) ? pendingImport.kind : null }));
+          localStorage.setItem(PROJ_PENDING_KEY, JSON.stringify({ w: w, h: h, noBleed: !!noBleed, importKind: (pendingImport && pendingImport.file) ? pendingImport.kind : null }));
           localStorage.setItem(PROJ_CUR_KEY, id);
         }catch(e){}
         location.reload();
@@ -11630,7 +11805,54 @@
     var mt = 1 - t;
     return { x: mt * mt * p0.x + 2 * mt * t * pc.x + t * t * p1.x, y: mt * mt * p0.y + 2 * mt * t * pc.y + t * t * p1.y };
   }
+  // ---------- Pixel art drawing ----------
+  // state.pixelMode: pen / eraser / line put down hard square stamps on whole canvas pixels (Bresenham between points).
+  // At size 1 the pen also drops the middle pixel of every L-shaped corner ("pixel-perfect"), which needs a one-point lag, so
+  // the last pending pixel is written when the stroke ends (pixelFlush). Symmetry needs several paths at once, so it skips the cleanup.
+  var pxA = null, pxPend = null, pxSeen = null;
+  function pixelReset(){ pxA = null; pxPend = null; pxSeen = new Set(); }
+  function pixelPlot(x, y){
+    var sz = Math.max(1, Math.round(state.size)), o = Math.floor((sz - 1) / 2), x0 = x - o, y0 = y - o;
+    if(state.tool === 'eraser'){ drawCtx.clearRect(x0, y0, sz, sz); return; }
+    drawCtx.globalCompositeOperation = 'source-over'; drawCtx.fillStyle = state.color;
+    if(state.alpha < 1){   // overlapping stamps would stack up and look streaky: give every pixel its colour once per stroke
+      drawCtx.globalAlpha = state.alpha;
+      for(var yy = y0; yy < y0 + sz; yy++) for(var xx = x0; xx < x0 + sz; xx++){ var key = xx + ',' + yy; if(pxSeen && pxSeen.has(key)) continue; if(pxSeen) pxSeen.add(key); drawCtx.fillRect(xx, yy, 1, 1); }
+      drawCtx.globalAlpha = 1; return;
+    }
+    drawCtx.globalAlpha = 1; drawCtx.fillRect(x0, y0, sz, sz);
+  }
+  function pixelCleanOn(){ return state.tool === 'pen' && Math.round(state.size) <= 1 && state.symmetry === 'off' && !tileDrawOn(); }
+  function pixelEmit(x, y){
+    if(!pixelCleanOn()){ pixelPlot(x, y); return; }
+    if(pxPend && pxPend.x === x && pxPend.y === y) return;
+    if(pxPend){
+      var isCorner = pxA && Math.abs(x - pxA.x) === 1 && Math.abs(y - pxA.y) === 1;
+      if(!isCorner){ pixelPlot(pxPend.x, pxPend.y); pxA = pxPend; }   // pxA = last pixel actually kept
+    }
+    pxPend = { x: x, y: y };
+  }
+  function pixelFlush(){
+    if(pxPend && state.pixelMode && (state.tool === 'pen' || state.tool === 'eraser')) pixelPlot(pxPend.x, pxPend.y);
+    pxA = null; pxPend = null;
+  }
+  function pixelLine(x0, y0, x1, y1, emit){   // Bresenham, both ends included
+    var dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1, err = dx + dy, guard = 20000;
+    for(;;){
+      emit(x0, y0);
+      if((x0 === x1 && y0 === y1) || --guard < 0) break;
+      var e2 = 2 * err;
+      if(e2 >= dy){ err += dy; x0 += sx; }
+      if(e2 <= dx){ err += dx; y0 += sy; }
+    }
+  }
+  function pixelSegment(from, to){
+    pixelLine(Math.floor(from.x), Math.floor(from.y), Math.floor(to.x), Math.floor(to.y), pixelEmit);
+    drawCtx.globalAlpha = 1; drawCtx.globalCompositeOperation = 'source-over';
+  }
+
   function strokeSegmentRaw(from, to, ctrl){   // ctrl (optional): quadratic control point, for curve-through-midpoints drawing
+    if(state.pixelMode && (state.tool === 'pen' || state.tool === 'eraser')){ pixelSegment(from, to); return; }
     var bbr = currentBrush(); if(bbr){ brushSegment(bbr, from, to); return; }
     drawCtx.lineJoin = 'round';
     drawCtx.lineCap = 'round';
@@ -11701,8 +11923,9 @@
   }
 
   // Every pen / eraser segment goes through here: draws it, plus its mirror image(s) around the frame's centre when Symmetry is on.
+  var tileLoop = false;   // true while the tiled-preview wrapper replays one segment at several offsets (the brush channels must keep counting up, not restart)
   function strokeSegment(from, to){
-    brushChan = 0;
+    if(!tileLoop) brushChan = 0;
     strokeSegmentRaw(from, to);
     var m = state.symmetry;
     if(m === 'off') return;
@@ -12430,11 +12653,12 @@
     beginDrawClip();
     strokeUsedSim = state.simulatePressure && e.pointerType !== 'pen';   // remembered for onPointerUp, which draws the matching taper-out tail only for a stroke that actually used simulated pressure — see drawSimPressureTail()
     updatePenDynamics(e, true, pos);
+    pixelReset();
     lastDrawnPsz = null; lastDrawnAlpha = null;   // fresh stroke: no previous segment to interpolate width/alpha from yet — see strokeSegmentRaw
     smoothSpeedEma = 0; lastSmoothRawPos = null; lastSmoothRawT = 0;   // fresh stroke: don't inherit a speed estimate from whatever the PREVIOUS stroke was doing — see smoothK()
     brushNext = []; brushLastAngle = []; brushOrigin = []; brushHasDir = [];
     strokeSegment(lastPos, lastPos);
-    qOn = !currentBrush() && state.symmetry === 'off' && !rulerLock; qMid = lastPos;
+    qOn = !currentBrush() && state.symmetry === 'off' && !rulerLock && !state.pixelMode && !tileDrawOn(); qMid = lastPos;
   }
   function onPointerMove(e){
     if(txtDrag && txtDrag.id === e.pointerId){   // section 87: drag a text layer's box
@@ -12681,7 +12905,7 @@
     }
     if(rulerLock) pos2 = rulerProject(pos2, rulerLock);
     rawLastPos = pos2;
-    if(state.smoothing){
+    if(state.smoothing && !state.pixelMode){
       var k = smoothK(rawLastPos);
       if(rulerLock && rulerLock.circ) pos2 = rulerArcLerp(rulerLock, lastPos, pos2, k);   // smooth along the ring, not across it
       else pos2 = { x: lastPos.x + (pos2.x - lastPos.x) * k, y: lastPos.y + (pos2.y - lastPos.y) * k };
@@ -12821,11 +13045,12 @@
     qOn = false; qMid = null;
     // smoothing lags behind the finger — finish the line at where the finger actually lifted
     var finalPos = lastPos;
-    if(state.smoothing && rawLastPos && lastPos && Math.hypot(rawLastPos.x - lastPos.x, rawLastPos.y - lastPos.y) > 0.5){
+    if(state.smoothing && !state.pixelMode && rawLastPos && lastPos && Math.hypot(rawLastPos.x - lastPos.x, rawLastPos.y - lastPos.y) > 0.5){
       rulerStrokeSegment(lastPos, rawLastPos);
       finalPos = rawLastPos;
     }
     if(strokeUsedSim) drawSimPressureTail(finalPos);   // the guaranteed taper-out at release — see its own comment for why this replaced continuous speed-based tapering
+    pixelFlush();
     isDrawing = false;
     rulerLock = null;
     endDrawClip();
@@ -13130,6 +13355,15 @@
     }
     return null;
   }
+  // Section 109: Matroska (.mkv). Chrome/Edge can record it (H.264 where available, else VP9/VP8); Firefox/Safari can't -> button disabled.
+  function getMkvMime(){
+    if(!window.MediaRecorder) return null;
+    var candidates = ['video/x-matroska;codecs=avc1', 'video/x-matroska;codecs=vp9', 'video/x-matroska;codecs=vp8', 'video/x-matroska'];
+    for(var i=0;i<candidates.length;i++){
+      if(MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+    }
+    return null;
+  }
 
   // ---- Export progress card: exports run in real time and the Export menu closes as soon as one starts, so without this it
   // looks like nothing is happening (and people click again). One export at a time; shows progress, a Cancel button,
@@ -13284,7 +13518,7 @@
           stop: function(){ mixSrcs.forEach(function(s){ try{ s.asrc.stop(); }catch(e){} }); }
         };
         stream.addTrack(dest.stream.getAudioTracks()[0]);
-        var withAudio = /mp4/.test(mimeType) ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'] : ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+        var withAudio = /mp4/.test(mimeType) ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'] : /matroska/.test(mimeType) ? ['video/x-matroska;codecs=' + (/avc1/.test(mimeType) ? 'avc1' : /vp8/.test(mimeType) ? 'vp8' : 'vp9') + ',opus', 'video/x-matroska;codecs=vp9,opus', 'video/x-matroska;codecs=vp8,opus', 'video/x-matroska'] : ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
         for(var wi = 0; wi < withAudio.length; wi++){ if(MediaRecorder.isTypeSupported(withAudio[wi])){ mimeType = withAudio[wi]; break; } }
       }catch(e){ exportAudio = null; }
     }
@@ -13355,6 +13589,14 @@
 
   function exportWebm(){
     recordVideo(getWebmMime(), 'webm', document.getElementById('exportWebmBtn'));
+  }
+  function exportMkv(){
+    var mime = getMkvMime();
+    if(!mime){
+      uiAlert("MKV recording isn't supported in this browser (Chrome and Edge can do it). Try MP4, WebM or GIF instead.");
+      return;
+    }
+    recordVideo(mime, 'mkv', document.getElementById('exportMkvBtn'));
   }
   function exportMp4(){
     var mime = getMp4Mime();
@@ -13658,6 +13900,278 @@
     })();
   }
   document.getElementById('exportPsdBtn').addEventListener('click', function(){ closeExportPopover(); exportPsd(); });
+
+  // ---- Section 107: Krita (.kra) export (current frame -> one Krita layer per layer, groups nested, 8-bit RGBA) ----
+  // krawLzf()/krawTiles()/krawXml() are pure (no DOM) so they can be tested in Node; exportKra() below gathers the pixels.
+  var KRAW_BLEND = { 'normal':'normal', 'multiply':'multiply', 'screen':'screen', 'overlay':'overlay', 'darken':'darken', 'lighten':'lighten', 'color-dodge':'dodge', 'color-burn':'burn', 'soft-light':'soft_light_svg', 'hard-light':'hard_light', 'difference':'diff' };
+  function krawLzf(inp){   // plain liblzf compressor; returns null when it would not be smaller (caller then stores the tile raw, flag 0)
+    var n = inp.length, out = new Uint8Array(n + (n >> 5) + 16), op = 0, ip = 0, ls = 0, ht = new Int32Array(1 << 14).fill(-1);
+    function lit(end){ while(ls < end){ var run = Math.min(32, end - ls); out[op++] = run - 1; for(var k = 0; k < run; k++) out[op++] = inp[ls++]; } }
+    while(ip < n - 2){
+      var h = Math.imul((inp[ip] << 16) | (inp[ip + 1] << 8) | inp[ip + 2], 2654435761) >>> 18, ref = ht[h]; ht[h] = ip;
+      var off = ip - ref - 1;
+      if(ref >= 0 && off < 8192 && inp[ref] === inp[ip] && inp[ref + 1] === inp[ip + 1] && inp[ref + 2] === inp[ip + 2]){
+        var maxl = Math.min(n - ip, 264), len = 3;
+        while(len < maxl && inp[ref + len] === inp[ip + len]) len++;
+        lit(ip);
+        var l = len - 2;
+        if(l < 7) out[op++] = (l << 5) | (off >> 8); else { out[op++] = (7 << 5) | (off >> 8); out[op++] = l - 7; }
+        out[op++] = off & 255;
+        ip += len; ls = ip;
+      } else ip++;
+    }
+    lit(n);
+    return op < n ? out.slice(0, op) : null;
+  }
+  // rgba: straight RGBA bytes of a W*H layer. Returns the Krita tile file (header + only the 64x64 tiles that contain ink; planar B,G,R,A).
+  function krawTiles(rgba, W, H){
+    var TS = 64, parts = [], count = 0, total = 0, enc = new TextEncoder();
+    for(var ty = 0; ty < H; ty += TS){
+      for(var tx = 0; tx < W; tx += TS){
+        var pl = new Uint8Array(TS * TS * 4), any = false, tw = Math.min(TS, W - tx), th = Math.min(TS, H - ty);
+        for(var j = 0; j < th; j++){
+          var si = ((ty + j) * W + tx) * 4;
+          for(var i = 0; i < tw; i++, si += 4){
+            var a = rgba[si + 3]; if(!a) continue;
+            any = true; var q = j * TS + i;
+            pl[q] = rgba[si + 2]; pl[4096 + q] = rgba[si + 1]; pl[8192 + q] = rgba[si]; pl[12288 + q] = a;
+          }
+        }
+        if(!any) continue;
+        var z = krawLzf(pl), pay;
+        if(z){ pay = new Uint8Array(z.length + 1); pay[0] = 1; pay.set(z, 1); } else { pay = new Uint8Array(pl.length + 1); pay[0] = 0; pay.set(pl, 1); }
+        var hd = enc.encode(tx + ',' + ty + ',LZF,' + pay.length + '\n');
+        parts.push(hd, pay); total += hd.length + pay.length; count++;
+      }
+    }
+    var head = enc.encode('VERSION 2\nTILEWIDTH 64\nTILEHEIGHT 64\nPIXELSIZE 4\nDATA ' + count + '\n'), out = new Uint8Array(head.length + total), p = head.length;
+    out.set(head, 0); parts.forEach(function(u){ out.set(u, p); p += u.length; });
+    return out;
+  }
+  function krawEsc(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ''); }
+  // tree: top -> bottom array of nodes { name, group, hidden, locked, collapsed, opacity 0..1, blend (app name), file, kids (top -> bottom, groups only) }
+  function krawXml(name, W, H, fps, tree){
+    function node(n, ind){
+      var a = '<layer name="' + krawEsc(n.name) + '" nodetype="' + (n.group ? 'grouplayer' : 'paintlayer') + '" filename="' + n.file + '" uuid="{' + n.uuid + '}" visible="' + (n.hidden ? 0 : 1) + '" locked="' + (n.locked ? 1 : 0) + '" collapsed="' + (n.collapsed ? 1 : 0) +
+        '" opacity="' + Math.max(0, Math.min(255, Math.round(n.opacity * 255))) + '" compositeop="' + (KRAW_BLEND[n.blend] || 'normal') + '" colorspacename="RGBA" channelflags="" channellockflags="" x="0" y="0" intimeline="0" onionskin="0" colorlabel="0"' + (n.group ? ' passthrough="0"' : '');
+      if(!n.group) return ind + a + ' />\n';
+      return ind + a + '>\n' + ind + ' <layers>\n' + n.kids.map(function(k){ return node(k, ind + '  '); }).join('') + ind + ' </layers>\n' + ind + '</layer>\n';
+    }
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE DOC PUBLIC \'-//KDE//DTD krita 2.0//EN\' \'http://www.calligra.org/DTD/krita-2.0.dtd\'>\n' +
+      '<DOC xmlns="http://www.calligra.org/DTD/krita" kritaVersion="5.2.2" syntaxVersion="2.0" editor="Krita">\n <IMAGE name="' + krawEsc(name) + '" mime="application/x-kra" width="' + W + '" height="' + H +
+      '" colorspacename="RGBA" profile="sRGB-elle-V2-srgbtrc.icc" x-res="72" y-res="72" description="">\n  <layers>\n' + tree.map(function(n){ return node(n, '   '); }).join('') + '  </layers>\n' +
+      '  <animation>\n   <framerate type="value" value="' + fps + '"/>\n   <range from="0" to="0" type="timerange"/>\n   <currentTime value="0" type="value"/>\n  </animation>\n </IMAGE>\n</DOC>\n';
+  }
+  function krawPng(cv){ return new Promise(function(res, rej){ cv.toBlob(function(b){ if(!b){ rej(new Error('PNG encode failed')); return; } b.arrayBuffer().then(function(ab){ res(new Uint8Array(ab)); }, rej); }, 'image/png'); }); }
+  function exportKra(){
+    var fi = state.current, frame = state.frames[fi];
+    migrateFrame(frame);
+    (async function(){
+      try{
+        await new Promise(function(res){ captureActiveLayerData(frame, res); });
+        syncCurrentFrameDataSync();
+        var W = FRAME_W, H = FRAME_H, L = frame.layers, enc = new TextEncoder(), hdr = {}, files = [], fileN = 0;
+        var rawName = (typeof exportProjectPrefix === 'function' ? exportProjectPrefix() : 'scribble-reel') || 'scribble-reel';
+        var dname = String(rawName).replace(/[\\\/:*?"<>|\u0000-\u001F]/g, '_').slice(0, 80) || 'scribble-reel';
+        L.forEach(function(l){ if(l.isGroup && l.gid) hdr[l.gid] = true; });
+        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        var cx = cv.getContext('2d', { willReadFrequently: true });
+        function uuid(){ return (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){ var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }); }
+        async function build(members, depth){   // members: bottom -> top. Returns the Krita node list top -> bottom.
+          var out = [];
+          for(var m = 0; m < members.length; m++){
+            var l = members[m], base = { name: l.name || (l.isGroup ? 'Group' : 'Layer'), hidden: l.visible === false, opacity: typeof l.opacity === 'number' ? l.opacity : 1, blend: l.blend || 'normal', file: 'layer' + (++fileN), uuid: uuid() };
+            if(l.isGroup){
+              if(depth >= 30) continue;
+              base.group = true; base.collapsed = !!l.collapsed; base.locked = false;
+              base.kids = await build(L.filter(function(c){ return c !== l && c.grp === l.gid; }), depth + 1);
+              out.unshift(base); continue;
+            }
+            cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalCompositeOperation = 'source-over'; cx.clearRect(0, 0, W, H);
+            var img = await layerImageSource(l);
+            if(img) cx.drawImage(img, -FRAME_X, -FRAME_Y);
+            if(l.clip){   // "clip to layer below": baked in (same rule as the Aseprite export)
+              var j = clipBaseIndex(L, L.indexOf(l));
+              if(j >= 0){
+                var B = L[j], bimg = B.visible !== false ? await layerImageSource(B) : null;
+                cx.globalCompositeOperation = 'destination-in'; if(bimg) cx.drawImage(bimg, -FRAME_X, -FRAME_Y); else cx.clearRect(0, 0, W, H); cx.globalCompositeOperation = 'source-over';
+              }
+            }
+            if(l.mask && l.maskOn !== false){   // layer mask: baked into the layer's own transparency
+              var mimg = await layerMaskSource(l);
+              if(mimg){ cx.globalCompositeOperation = 'destination-in'; cx.drawImage(mimg, -FRAME_X, -FRAME_Y); cx.globalCompositeOperation = 'source-over'; }
+            }
+            base.locked = !!l.locked && !l.txt;
+            files.push({ name: dname + '/layers/' + base.file, data: krawTiles(cx.getImageData(0, 0, W, H).data, W, H) });
+            files.push({ name: dname + '/layers/' + base.file + '.defaultpixel', data: new Uint8Array(4) });
+            out.unshift(base);
+          }
+          return out;
+        }
+        var top = L.filter(function(l){ return !(l.grp && hdr[l.grp]); });   // members of a group are written inside it
+        var tree = await build(top, 0);
+        cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalCompositeOperation = 'source-over'; cx.clearRect(0, 0, W, H);
+        var fimg = await loadImagePromise(frame.data);
+        if(fimg) cx.drawImage(fimg, -FRAME_X, -FRAME_Y);
+        var merged = await krawPng(cv);
+        var pw = Math.max(1, Math.round(W * Math.min(1, 256 / Math.max(W, H)))), ph = Math.max(1, Math.round(H * Math.min(1, 256 / Math.max(W, H)))), pc = document.createElement('canvas');
+        pc.width = pw; pc.height = ph; pc.getContext('2d').drawImage(cv, 0, 0, pw, ph);
+        var prev = await krawPng(pc);
+        var entries = [{ name: 'mimetype', data: enc.encode('application/x-krita') },
+          { name: 'maindoc.xml', data: enc.encode(krawXml(dname, W, H, state.fps || 12, tree)) },
+          { name: 'documentinfo.xml', data: enc.encode('<?xml version="1.0" encoding="UTF-8"?>\n<document-info xmlns="http://www.calligra.org/DTD/document-info">\n <about>\n  <title>' + krawEsc(dname) + '</title>\n  <initial-creator>Scribble Reel</initial-creator>\n </about>\n</document-info>\n') }]
+          .concat(files, [{ name: 'mergedimage.png', data: merged }, { name: 'preview.png', data: prev }]);
+        offerDownload(makeZip(entries), 'scribble-reel-frame-' + (fi + 1) + '.kra');
+      }catch(e){ uiAlert('Could not make the Krita file. ' + (e && e.message ? e.message : '')); }
+    })();
+  }
+  document.getElementById('exportKraBtn').addEventListener('click', function(){ closeExportPopover(); exportKra(); });
+
+  // ---- Section 105: Aseprite export (loop range / all frames -> one animated .aseprite, 32-bit RGBA) ----
+  // asewBuild() is a pure byte builder (no DOM) so it can be run in Node; exportAseprite() below gathers the pixels.
+  var ASEW_BLEND = { 'normal':0, 'multiply':1, 'screen':2, 'overlay':3, 'darken':4, 'lighten':5, 'color-dodge':6, 'color-burn':7, 'hard-light':8, 'soft-light':9, 'difference':10 };
+  function asewSink(){   // little-endian byte sink
+    var buf = new Uint8Array(1024), n = 0;
+    function need(k){ if(n + k > buf.length){ var nb = new Uint8Array(Math.max(buf.length * 2, n + k)); nb.set(buf.subarray(0, n)); buf = nb; } }
+    var s = {
+      u8: function(v){ need(1); buf[n++] = v & 255; },
+      u16: function(v){ s.u8(v); s.u8(v >> 8); },
+      u32: function(v){ s.u16(v & 0xFFFF); s.u16((v >>> 16) & 0xFFFF); },
+      zero: function(k){ need(k); n += k; },
+      raw: function(u){ need(u.length); buf.set(u, n); n += u.length; },
+      str: function(t){ var b = new TextEncoder().encode(String(t)).subarray(0, 60000); s.u16(b.length); s.raw(b); },
+      size: function(){ return n; },
+      out: function(){ return buf.slice(0, n); }
+    };
+    return s;
+  }
+  function asewChunk(type, body){ var c = asewSink(); c.u32(body.length + 6); c.u16(type); c.raw(body); return c.out(); }
+  // slots: [{ name, type 0 layer | 1 group, level, blend }] in file order (a group comes right before its members, bottom -> top)
+  // frames: [{ dur ms, cels: [{ slot, x, y, w, h, op 1..255, link: frame position | null, z: zlib bytes (when link is null) }] }]
+  function asewBuild(W, H, slots, frames){
+    var fbytes = frames.map(function(F, fi){
+      var chunks = [];
+      if(fi === 0){
+        var cp = asewSink(); cp.u16(1); cp.u16(0); cp.u32(0); cp.zero(8); chunks.push(asewChunk(0x2007, cp.out()));   // colour profile: sRGB
+        slots.forEach(function(S){
+          var b = asewSink(); b.u16(3); b.u16(S.type === 1 ? 1 : 0); b.u16(S.level); b.u16(0); b.u16(0);   // visible + editable, type, child level, (default size, ignored)
+          b.u16(ASEW_BLEND[S.blend] || 0); b.u8(255); b.zero(3); b.str(S.name);
+          chunks.push(asewChunk(0x2004, b.out()));
+        });
+      }
+      F.cels.forEach(function(c){
+        var b = asewSink(), linked = c.link !== null && c.link !== undefined;
+        b.u16(c.slot); b.u16(c.x); b.u16(c.y); b.u8(c.op); b.u16(linked ? 1 : 2); b.u16(0); b.zero(5);
+        if(linked) b.u16(c.link); else { b.u16(c.w); b.u16(c.h); b.raw(c.z); }
+        chunks.push(asewChunk(0x2005, b.out()));
+      });
+      var body = asewSink(); chunks.forEach(function(c){ body.raw(c); });
+      var fr = asewSink(); fr.u32(16 + body.size()); fr.u16(0xF1FA); fr.u16(Math.min(chunks.length, 0xFFFF)); fr.u16(Math.max(1, Math.min(65535, Math.round(F.dur)))); fr.zero(2); fr.u32(chunks.length);
+      fr.raw(body.out());
+      return fr.out();
+    });
+    var total = 128; fbytes.forEach(function(f){ total += f.length; });
+    var h = asewSink();
+    h.u32(total); h.u16(0xA5E0); h.u16(frames.length); h.u16(W); h.u16(H); h.u16(32); h.u32(1);   // 32 bpp, flags: layer opacity is valid
+    h.u16(frames.length ? Math.max(1, Math.min(65535, Math.round(frames[0].dur))) : 100); h.u32(0); h.u32(0);
+    h.u8(0); h.zero(3); h.u16(0); h.u8(1); h.u8(1); h.u16(0); h.u16(0); h.u16(16); h.u16(16); h.zero(84);
+    var out = asewSink(); out.raw(h.out()); fbytes.forEach(function(f){ out.raw(f); });
+    return out.out();
+  }
+  async function asewDeflate(u8){   // zlib stream, which is what a cel wants
+    if(typeof CompressionStream === 'undefined') throw new Error('This browser cannot compress data (no CompressionStream).');
+    var rs = new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate'));
+    return new Uint8Array(await new Response(rs).arrayBuffer());
+  }
+  function asewCrop(rgba, W, H){   // -> null when fully transparent, else the non-transparent box with its own straight-RGBA pixels
+    var t = H, b = -1, l = W, r = -1, x, y;
+    for(y = 0; y < H; y++){ var o = y * W * 4 + 3; for(x = 0; x < W; x++) if(rgba[o + x * 4]){ if(y < t) t = y; if(y > b) b = y; if(x < l) l = x; if(x > r) r = x; } }
+    if(b < 0) return null;
+    var w = r - l + 1, h = b - t + 1, px = new Uint8Array(w * h * 4);
+    for(y = 0; y < h; y++) px.set(rgba.subarray(((t + y) * W + l) * 4, ((t + y) * W + l + w) * 4), y * w * 4);
+    return { x: l, y: t, w: w, h: h, px: px };
+  }
+  function asewSame(a, b){ if(a.length !== b.length) return false; for(var i = 0; i < a.length; i++) if(a[i] !== b[i]) return false; return true; }
+  function exportAseprite(){
+    var idx = pingPongIdx(exportRangeIdx());
+    var job = exportBegin('Aseprite file', null);
+    if(!job) return;
+    if(Math.max(FRAME_W, FRAME_H) > 65535){ exportFail(job, 'This canvas is too big for an Aseprite file (65535 px per side is the limit).'); return; }
+    if(idx.length > 65535){ exportFail(job, 'Too many frames for an Aseprite file.'); return; }
+    (async function(){
+      try{
+        var cur = state.frames[state.current]; migrateFrame(cur);
+        await new Promise(function(res){ captureActiveLayerData(cur, res); });
+        syncCurrentFrameDataSync();
+        // Aseprite has ONE layer list for the whole file, so layers are matched across frames by their stack position, taking names/groups/blend
+        // from the frame with the most layers (the app's "sync layers across frames" keeps positions lined up).
+        var tIdx = idx[0];
+        idx.forEach(function(fi){ migrateFrame(state.frames[fi]); if(state.frames[fi].layers.length > state.frames[tIdx].layers.length) tIdx = fi; });
+        var T = state.frames[tIdx], hdr = {}, slots = [];
+        T.layers.forEach(function(l){ if(l.isGroup && l.gid) hdr[l.gid] = true; });
+        function emitGroup(l, level){
+          slots.push({ name: l.name || 'Group', type: 1, level: level, pos: T.layers.indexOf(l), blend: 'normal' });
+          if(!l.gid) return;
+          T.layers.forEach(function(m){
+            if(m === l || m.grp !== l.gid) return;
+            if(m.isGroup){ if(level < 30) emitGroup(m, level + 1); }
+            else slots.push({ name: m.name || 'Layer', type: 0, level: level + 1, pos: T.layers.indexOf(m), blend: m.blend || 'normal' });
+          });
+        }
+        T.layers.forEach(function(l){
+          if(l.grp && hdr[l.grp]) return;
+          if(l.isGroup) emitGroup(l, 0); else slots.push({ name: l.name || 'Layer', type: 0, level: 0, pos: T.layers.indexOf(l), blend: l.blend || 'normal' });
+        });
+        var cv = document.createElement('canvas'); cv.width = FRAME_W; cv.height = FRAME_H;
+        var cx = cv.getContext('2d', { willReadFrequently: true }), memo = {}, last = {}, frames = [];
+        for(var k = 0; k < idx.length; k++){
+          if(job.cancelled) return;
+          exportProgress(job, 0.92 * k / idx.length, 'Frame ' + (k + 1) + ' of ' + idx.length);
+          var fi = idx[k], F = state.frames[fi], cels = [];
+          if(memo[fi]){   // the same drawing again (ping-pong): every cel just points back at the first time it was written
+            memo[fi].forEach(function(c){ cels.push({ slot: c.slot, x: c.x, y: c.y, w: c.w, h: c.h, op: c.op, link: c.at, at: c.at, z: null }); });
+          } else {
+            for(var si = 0; si < slots.length; si++){
+              var S = slots[si]; if(S.type !== 0) continue;
+              var L = F.layers[S.pos]; if(!L || L.isGroup) continue;
+              var vis = L.visible !== false, op = typeof L.opacity === 'number' ? L.opacity : 1, chain = groupChain(F, L);
+              for(var gi = 0; gi < chain.length; gi++){ if(chain[gi].visible === false) vis = false; op *= (typeof chain[gi].opacity === 'number' ? chain[gi].opacity : 1); }
+              if(!vis || op < 0.002) continue;   // hidden (or fully faded) in this frame: no cel
+              var img = await layerImageSource(L); if(!img) continue;
+              cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalCompositeOperation = 'source-over'; cx.clearRect(0, 0, FRAME_W, FRAME_H);
+              cx.drawImage(img, -FRAME_X, -FRAME_Y);
+              if(L.clip){   // "clip to layer below" has no Aseprite equivalent, so it is baked in
+                var j = clipBaseIndex(F.layers, F.layers.indexOf(L));
+                if(j >= 0){
+                  var B = F.layers[j], bimg = B.visible !== false ? await layerImageSource(B) : null;
+                  if(!bimg) continue;
+                  cx.globalCompositeOperation = 'destination-in'; cx.drawImage(bimg, -FRAME_X, -FRAME_Y); cx.globalCompositeOperation = 'source-over';
+                }
+              }
+              if(L.mask && L.maskOn !== false){   // layer masks are baked into the layer's own transparency
+                var mimg = await layerMaskSource(L);
+                if(mimg){ cx.globalCompositeOperation = 'destination-in'; cx.drawImage(mimg, -FRAME_X, -FRAME_Y); cx.globalCompositeOperation = 'source-over'; }
+              }
+              var box = asewCrop(cx.getImageData(0, 0, FRAME_W, FRAME_H).data, FRAME_W, FRAME_H);
+              if(!box) continue;
+              var op8 = Math.max(1, Math.min(255, Math.round(op * 255))), prev = last[si];
+              var rec = { slot: si, x: box.x, y: box.y, w: box.w, h: box.h, op: op8, link: null, at: k, z: null };
+              if(prev && prev.x === box.x && prev.y === box.y && prev.w === box.w && prev.h === box.h && prev.op === op8 && asewSame(prev.px, box.px)){ rec.link = prev.at; rec.at = prev.at; }   // unchanged since the last time: a linked cel costs a few bytes
+              else { rec.z = await asewDeflate(box.px); last[si] = { x: box.x, y: box.y, w: box.w, h: box.h, op: op8, px: box.px, at: k }; }
+              cels.push(rec);
+            }
+            memo[fi] = cels.map(function(c){ return { slot: c.slot, x: c.x, y: c.y, w: c.w, h: c.h, op: c.op, at: c.at }; });
+          }
+          frames.push({ dur: frameDurationMs(fi), cels: cels });
+          await new Promise(function(r){ setTimeout(r, 0); });
+        }
+        if(job.cancelled) return;
+        var bytes = asewBuild(FRAME_W, FRAME_H, slots, frames);
+        exportFinish(job, new Blob([bytes], { type: 'application/octet-stream' }), 'scribble-reel.aseprite');
+      }catch(e){ exportFail(job, 'Could not make the Aseprite file. ' + (e && e.message ? e.message : '')); }
+    })();
+  }
+  document.getElementById('exportAseBtn').addEventListener('click', function(){ closeExportPopover(); exportAseprite(); });
 
   // which frames the exports (GIF / video / PNG sequence) include: the loop range if one is set, otherwise everything
   function exportRangeIdx(){
@@ -16346,13 +16860,30 @@
   document.getElementById('resizeCancelBtn').addEventListener('click', closeResizeDialog);
   resizeOverlay.addEventListener('click', function(e){ if(e.target === resizeOverlay) closeResizeDialog(); });
   window.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !resizeOverlay.hidden) closeResizeDialog(); });
-  resizeOverlay.querySelectorAll('.resize-preset').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      resizeWidthInput.value = btn.dataset.w;
-      resizeHeightInput.value = btn.dataset.h;
-      updateResizeRatioNote();
-    });
-  });
+  // Aspect-ratio and resolution presets combine: pick 1:1 then 720p → 720×720 (resolution = the short side, so 9:16 + 720p → 720×1280).
+  // Tap a selected preset again to unselect it. Typing a size yourself clears both.
+  function wireSizePresets(overlay, wIn, hIn, noteFn){
+    var selRatio = null, selRes = null, btns = Array.prototype.slice.call(overlay.querySelectorAll('.resize-preset'));
+    function isRes(b){ return /resolution/i.test(b.closest('.resize-presets-group').querySelector('.popover-section-label').textContent); }
+    function paint(){ btns.forEach(function(b){ b.setAttribute('aria-pressed', String(isRes(b) ? b.dataset.h === selRes : (selRatio && b.dataset.w + ':' + b.dataset.h === selRatio))); }); }
+    function clear(){ selRatio = null; selRes = null; paint(); }
+    function apply(btn){
+      var res = isRes(btn), rw, rh;
+      if(res){ selRes = selRes === btn.dataset.h ? null : btn.dataset.h; } else { selRatio = selRatio === btn.dataset.w + ':' + btn.dataset.h ? null : btn.dataset.w + ':' + btn.dataset.h; }
+      if(selRes){
+        if(selRatio){ var q = selRatio.split(':'); rw = +q[0]; rh = +q[1]; }
+        else { rw = parseFloat(wIn.value); rh = parseFloat(hIn.value); if(!(rw > 0 && rh > 0)){ rw = 16; rh = 9; } }
+        var S = +selRes, g = gcd(Math.round(rw), Math.round(rh)) || 1; rw = rw / g; rh = rh / g;
+        if(rw >= rh){ hIn.value = S; wIn.value = Math.round(S * rw / rh); } else { wIn.value = S; hIn.value = Math.round(S * rh / rw); }
+      } else if(selRatio){ var q2 = selRatio.split(':'); wIn.value = q2[0]; hIn.value = q2[1]; }
+      else if(!res){ /* ratio unselected, nothing chosen: leave the numbers */ }
+      paint(); noteFn();
+    }
+    btns.forEach(function(b){ b.addEventListener('click', function(){ apply(b); }); });
+    [wIn, hIn].forEach(function(i){ i.addEventListener('input', clear); });
+    new MutationObserver(function(){ if(!overlay.hidden) clear(); }).observe(overlay, { attributes: true, attributeFilter: ['hidden'] });
+  }
+  wireSizePresets(resizeOverlay, resizeWidthInput, resizeHeightInput, function(){ updateResizeRatioNote(); });
 
   // Confirmation step, shown after picking a size and a mode, before anything is actually touched.
   var confirmResizeOverlay = document.getElementById('confirmResizeOverlay');
@@ -16655,6 +17186,21 @@
     settingsBtn.setAttribute('aria-expanded', 'false');
   }
   window.addEventListener('resize', function(){ if(!settingsPopover.hidden) positionSettingsPopover(); });
+  // ---- Section 106: collapsible Settings categories; open/closed state is a per-browser pref (localStorage `scribbleSettingsOpen`) ----
+  (function(){
+    var KEY = 'scribbleSettingsOpen', openCats = { playback: true };
+    try{ var raw = localStorage.getItem(KEY); if(raw){ var o = JSON.parse(raw); if(o && typeof o === 'object') openCats = o; } }catch(e){}
+    settingsPopover.querySelectorAll('.set-cat').forEach(function(cat){
+      var id = cat.getAttribute('data-cat'), head = cat.querySelector('.set-cat-head'), body = cat.querySelector('.set-cat-body');
+      function apply(){ var on = !!openCats[id]; head.setAttribute('aria-expanded', on ? 'true' : 'false'); body.hidden = !on; }
+      apply();
+      head.addEventListener('click', function(){
+        openCats[id] = !openCats[id]; apply();
+        try{ localStorage.setItem(KEY, JSON.stringify(openCats)); }catch(e){}
+        if(!settingsPopover.hidden) positionSettingsPopover();
+      });
+    });
+  })();
 
   settingsBtn.addEventListener('click', function(e){
     e.stopPropagation();
@@ -17562,6 +18108,34 @@
   newProjectWidthInput.addEventListener('input', updateNewProjectRatioNote);
   newProjectHeightInput.addEventListener('input', updateNewProjectRatioNote);
 
+  // "Keep proportions": with the switch on, typing in one side of a size dialog rewrites the other so the ratio holds. The ratio is whatever the two
+  // fields showed the last time they were set by something other than typing (dialog opening, a preset, a picked file) — those all go through the
+  // dialog's ratio-note function, which is why it is wrapped here — so typing never makes the ratio drift.
+  var KEEP_RATIO_KEY = 'scribbleKeepRatio', keepRatioBoxes = [];
+  function linkProportions(wIn, hIn, box, noteName){
+    var ratio = null;
+    function cur(){ var w = parseFloat(wIn.value), h = parseFloat(hIn.value); return (w > 0 && h > 0) ? w / h : null; }
+    var orig = noteName === 'resize' ? updateResizeRatioNote : updateNewProjectRatioNote;
+    function wrapped(){ orig(); ratio = cur(); }
+    if(noteName === 'resize') updateResizeRatioNote = wrapped; else updateNewProjectRatioNote = wrapped;
+    function clamp(v){ return Math.min(4096, Math.max(1, Math.round(v))); }
+    wIn.addEventListener('input', function(){ if(!box.checked || !ratio) return; var w = parseFloat(wIn.value); if(w > 0) hIn.value = clamp(w / ratio); orig(); });
+    hIn.addEventListener('input', function(){ if(!box.checked || !ratio) return; var h = parseFloat(hIn.value); if(h > 0) wIn.value = clamp(h * ratio); orig(); });
+    box.addEventListener('change', function(){
+      ratio = cur();
+      keepRatioBoxes.forEach(function(b){ b.checked = box.checked; });
+      try{ localStorage.setItem(KEEP_RATIO_KEY, box.checked ? '1' : '0'); }catch(e){}
+    });
+    keepRatioBoxes.push(box);
+    ratio = cur();
+  }
+  (function(){
+    var on = false; try{ on = localStorage.getItem(KEEP_RATIO_KEY) === '1'; }catch(e){}
+    linkProportions(resizeWidthInput, resizeHeightInput, document.getElementById('resizeKeepRatio'), 'resize');
+    linkProportions(newProjectWidthInput, newProjectHeightInput, document.getElementById('newProjectKeepRatio'), 'newProject');
+    keepRatioBoxes.forEach(function(b){ b.checked = on; });
+  })();
+
   // Lets "Create" seed the new project straight from a picked file: its natural dimensions
   // auto-fill the size fields above, and the file itself becomes the starting frame(s) once the
   // project actually exists (see consumePendingImport, and the createProjectAndSwitch hand-off
@@ -17582,10 +18156,10 @@
   npImportInput.addEventListener('change', function(){
     var file = npImportInput.files && npImportInput.files[0];
     if(!file) return;
-    var isProc = /\.procreate$/i.test(file.name), isClip = /\.clip$/i.test(file.name), isPsd = /\.psd$/i.test(file.name) || isProc || isClip;
-    var isVideo = !isPsd && /^video\//.test(file.type);
+    var isProc = /\.procreate$/i.test(file.name), isClip = /\.clip$/i.test(file.name), isKra = /\.kra$/i.test(file.name), isAse = /\.(aseprite|ase)$/i.test(file.name), isPsd = /\.psd$/i.test(file.name) || isProc || isClip || isKra || isAse;
+    var isVideo = !isPsd && (/^video\//.test(file.type) || /\.(mkv|webm|mov|mp4|m4v|ogv)$/i.test(file.name));   // Section 110: some systems report no type for .mkv
     var isGif = !isPsd && (file.type === 'image/gif' || /\.gif$/i.test(file.name));
-    var kind = isProc ? 'procreate' : isClip ? 'clip' : isPsd ? 'psd' : (isVideo ? 'video' : (isGif ? 'gif' : 'image'));
+    var kind = isAse ? 'ase' : isKra ? 'kra' : isProc ? 'procreate' : isClip ? 'clip' : isPsd ? 'psd' : (isVideo ? 'video' : (isGif ? 'gif' : 'image'));
     function ready(w, h){
       pendingNewProjectImport = { file: file, kind: kind };
       npImportName.textContent = file.name;
@@ -17596,7 +18170,11 @@
         updateNewProjectRatioNote();
       }
     }
-    if(isProc || isClip){
+    if(isAse){
+      file.slice(0, 16).arrayBuffer().then(function(b){ var h = aseReadHeader(b); ready(h.W, h.H); }, function(){ throw 0; }).catch(function(e){ uiAlert(e && e.message ? e.message : 'Could not read that file.'); clearNewProjectImport(); });
+    } else if(isKra){
+      kraReadDoc(file).then(function(D){ ready(D.W, D.H); }, function(e){ uiAlert(e && e.message ? e.message : 'Could not read that file.'); clearNewProjectImport(); });
+    } else if(isProc || isClip){
       (isProc ? procreateReadDoc(file).then(function(D){ return [D.W, D.H]; }) : file.arrayBuffer().then(function(ab){ var cv = sqliteReader(clipReadChunks(new Uint8Array(ab)).db).rows('Canvas')[0]; return [cv.CanvasWidth, cv.CanvasHeight]; }))
         .then(function(wh){ ready(wh[0], wh[1]); }, function(e){ uiAlert(e && e.message ? e.message : 'Could not read that file.'); clearNewProjectImport(); });
     } else if(isPsd){
@@ -17626,7 +18204,9 @@
     }
   });
 
+  var npNoBleed = document.getElementById('npNoBleed'), NP_NOBLEED_KEY = 'scribbleNewNoBleed';
   function openNewProjectSizeDialog(){
+    try{ npNoBleed.checked = localStorage.getItem(NP_NOBLEED_KEY) === '1'; }catch(e){}
     newProjectWidthInput.value = FRAME_W;
     newProjectHeightInput.value = FRAME_H;
     updateNewProjectRatioNote();
@@ -17638,13 +18218,7 @@
   document.getElementById('newProjectSizeCancelBtn').addEventListener('click', closeNewProjectSizeDialog);
   newProjectSizeOverlay.addEventListener('click', function(e){ if(e.target === newProjectSizeOverlay) closeNewProjectSizeDialog(); });
   window.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !newProjectSizeOverlay.hidden) closeNewProjectSizeDialog(); });
-  newProjectSizeOverlay.querySelectorAll('.resize-preset').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      newProjectWidthInput.value = btn.dataset.w;
-      newProjectHeightInput.value = btn.dataset.h;
-      updateNewProjectRatioNote();
-    });
-  });
+  wireSizePresets(newProjectSizeOverlay, newProjectWidthInput, newProjectHeightInput, function(){ updateNewProjectRatioNote(); });
   // Sets the canvas to a new size with nothing to preserve (unlike resizeProject, there's no
   // existing drawing to crop/scale — every frame is about to be replaced with a blank one).
   function setCanvasSizeForNewProject(newFrameW, newFrameH){
@@ -17663,11 +18237,13 @@
     var w = Math.round(parseFloat(newProjectWidthInput.value)), h = Math.round(parseFloat(newProjectHeightInput.value));
     if(!(w > 0) || !(h > 0)){ uiAlert('Enter a width and height greater than 0.'); return; }
     var makeNewAnimation = galleryNewMode;   // (closing the dialog resets the flag, so read it first)
+    var noBleed = npNoBleed.checked; try{ localStorage.setItem(NP_NOBLEED_KEY, noBleed ? '1' : '0'); }catch(e){}
     var pendingImport = pendingNewProjectImport;   // (closing the dialog clears it, so read it first)
     closeNewProjectSizeDialog();
-    if(makeNewAnimation){ pause(); createProjectAndSwitch(w, h, pendingImport); return; }
+    if(makeNewAnimation){ pause(); createProjectAndSwitch(w, h, pendingImport, noBleed); return; }
     var hsN = takeFrameSnap();   // so "Start new" on the currently-open project is undoable, same as a resize
     pause();
+    if(noBleed){ BLEED_SCALE_X = 1; BLEED_SCALE_Y = 1; }   // otherwise the project keeps whatever bleed it already has
     setCanvasSizeForNewProject(w, h);
     blankDataURL = makeBlankFrame();
     state.frames = [makeFrameObj(blankDataURL)];
@@ -17760,7 +18336,7 @@
     if(kind === 'gif') return importGifFrames(file).then(dropLeadingBlank);
     if(kind === 'video') return new Promise(function(resolve){ importVideoFrames(file, function(){ dropLeadingBlank(); resolve(); }); });
     if(kind === 'image') return seedImportImage(file);
-    if(kind === 'psd' || kind === 'procreate' || kind === 'clip') return importPsdAsLayers(new File([file], 'import.' + (kind === 'psd' ? 'psd' : kind)));   // (a blob read back from IndexedDB may have lost its name, which importPsdAsLayers checks)
+    if(kind === 'psd' || kind === 'procreate' || kind === 'clip' || kind === 'kra' || kind === 'ase') return importPsdAsLayers(new File([file], 'import.' + (kind === 'psd' ? 'psd' : kind)));   // (a blob read back from IndexedDB may have lost its name, which importPsdAsLayers checks)
     return Promise.resolve();
   }
   // Reads back (and clears) the seed file a createProjectAndSwitch reload stashed in this project's
@@ -18076,7 +18652,7 @@
       var raw = new Uint8Array(await file.slice(start, start + e.comp).arrayBuffer());
       return e.method === 0 ? raw : inflateBytes(raw, 'deflate-raw');
     }
-    return { has: function(n){ return !!map[n]; }, read: read };
+    return { has: function(n){ return !!map[n]; }, read: read, names: function(){ return Object.keys(map); } };
   }
   async function inflateBytes(bytes, fmt){
     if(typeof DecompressionStream !== 'function') throw new Error('This browser can\'t unpack this file type (no DecompressionStream).');
@@ -18103,7 +18679,7 @@
       var name = res(L.name) || '', kids = L.children ? res(L.children) : null;
       var hid = hidden || !!res(L.hidden), opa = op * (typeof res(L.opacity) === 'number' ? res(L.opacity) : 1);
       if(kids && kids['NS.objects']){ kids['NS.objects'].forEach(function(c){ walk(c, name, hid, opa); }); return; }
-      flat.push({ L: L, name: (path ? path + '/' : '') + name, hid: hid, opa: opa });
+      flat.push({ L: L, name: name, hid: hid, opa: opa });
     }
     var tops = res(D.root.unwrappedLayers) || res(D.root.layers);
     (tops['NS.objects'] || []).forEach(function(u){ walk(u, '', false, 1); });
@@ -18145,6 +18721,197 @@
       out.push({ name: it.name, l: x0, t: y0, w: bw, h: bh, px: buf, opacity: Math.max(0, Math.min(1, it.opa)), hidden: it.hid, appBlend: PBLEND[+res(it.L.extendedBlend) || +res(it.L.blend) || 0] || 'normal', clip: !!res(it.L.clipped), sect: 0 });
     }
     return { W: D.W, H: D.H, layers: out, skipped: skipped, skippedWhat: 'empty' };
+  }
+
+  // Krita (.kra) import: a zip with maindoc.xml (layer tree) + one tiled data file per paint layer (64x64 tiles, LZF, planar BGRA).
+  // Returns the same shape as the other parsers. 8-bit RGBA, 16-bit RGBA and grey+alpha paint layers are read; groups are flattened.
+  function lzfDecompress(inp, outLen){
+    var out = new Uint8Array(outLen), ip = 0, op = 0, n = inp.length;
+    while(ip < n && op < outLen){
+      var ctrl = inp[ip++];
+      if(ctrl < 32){ ctrl++; while(ctrl-- && ip < n && op < outLen) out[op++] = inp[ip++]; }
+      else {
+        var len = ctrl >> 5, ref = op - ((ctrl & 31) << 8) - 1;
+        if(len === 7) len += inp[ip++];
+        ref -= inp[ip++]; len += 2;
+        if(ref < 0) break;
+        while(len-- && op < outLen) out[op++] = out[ref++];
+      }
+    }
+    return out;
+  }
+  async function kraReadDoc(file){
+    var zip;
+    try{ zip = await zipIndexFile(file); }catch(e){ throw new Error('That doesn\'t look like a Krita file.'); }
+    var xb = await zip.read('maindoc.xml');
+    if(!xb) throw new Error('That doesn\'t look like a Krita file (no maindoc.xml).');
+    var xml = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(xb), 'application/xml'), im = xml.getElementsByTagName('IMAGE')[0];
+    var W = im ? Math.round(+im.getAttribute('width')) : 0, H = im ? Math.round(+im.getAttribute('height')) : 0;
+    if(!(W > 0 && H > 0)) throw new Error('Could not read the Krita canvas size.');
+    return { zip: zip, im: im, W: W, H: H, name: im.getAttribute('name') || '' };
+  }
+  async function kraParse(file){
+    var D = await kraReadDoc(file), out = [], skipped = 0, flat = [], names = D.zip.names();
+    var KBLEND = { normal: 'normal', multiply: 'multiply', screen: 'screen', overlay: 'overlay', darken: 'darken', lighten: 'lighten', dodge: 'color-dodge', burn: 'color-burn',
+      soft_light: 'soft-light', soft_light_svg: 'soft-light', soft_light_pegtop_delphi: 'soft-light', soft_light_ifs_illusions: 'soft-light', hard_light: 'hard-light', diff: 'difference' };
+    function kids(el, tag){ var r = []; if(!el) return r; for(var c = el.firstElementChild; c; c = c.nextElementSibling) if(c.tagName === tag) r.push(c); return r; }
+    function walk(el, path, hidden, op){
+      var nt = el.getAttribute('nodetype') || '', name = el.getAttribute('name') || '', oa = el.getAttribute('opacity');
+      var hid = hidden || el.getAttribute('visible') === '0', o = op * (oa === null || oa === '' ? 1 : (+oa) / 255);
+      var sub = kids(el, 'layers')[0];
+      if(nt === 'grouplayer' || sub){ kids(sub, 'layer').forEach(function(c){ walk(c, (path ? path + '/' : '') + name, hid, o); }); return; }
+      if(nt !== 'paintlayer'){ skipped++; return; }   // vector / filter / clone / file layers have no pixel tiles to read
+      flat.push({ el: el, name: name, hid: hid, opa: o });
+    }
+    kids(kids(D.im, 'layers')[0], 'layer').forEach(function(c){ walk(c, '', false, 1); });
+    flat.reverse();   // Krita lists top → bottom; the app wants bottom → top
+    var td = new TextDecoder('ascii');
+    for(var fi = 0; fi < flat.length; fi++){
+      impProg(0.03 + 0.92 * fi / flat.length, 'Layer ' + (fi + 1) + ' of ' + flat.length);
+      var it = flat[fi], fn = it.el.getAttribute('filename'), cs = it.el.getAttribute('colorspacename') || 'RGBA';
+      var lx = Math.round(+it.el.getAttribute('x')) || 0, ly = Math.round(+it.el.getAttribute('y')) || 0;
+      var path = D.name + '/layers/' + fn;
+      if(!D.zip.has(path)){ var suf = '/layers/' + fn; path = names.filter(function(n){ return n.slice(-suf.length) === suf; })[0]; }
+      var data = path ? await D.zip.read(path) : null;
+      if(!data){ skipped++; continue; }
+      var pos = 0;
+      function line(){ var a = pos; while(pos < data.length && data[pos] !== 10) pos++; var t = td.decode(data.subarray(a, pos)); pos++; return t; }
+      var hd = {}, hl;
+      for(var q = 0; q < 8; q++){ hl = line().split(' '); hd[hl[0]] = +hl[1]; if(hl[0] === 'DATA') break; }
+      var tw = hd.TILEWIDTH || 64, th = hd.TILEHEIGHT || 64, ps = hd.PIXELSIZE || 4, nT = hd.DATA || 0, plane = tw * th;
+      var kind = (cs === 'RGBA' && ps === 4) ? 'rgba8' : (cs === 'RGBA16' && ps === 8) ? 'rgba16' : (cs === 'GRAYA' && ps === 2) ? 'ga8' : null;
+      if(!kind){ skipped++; continue; }
+      var tiles = [], x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for(var t = 0; t < nT && pos < data.length; t++){
+        var pr = line().split(','), size = +pr[3];
+        var ax = lx + (+pr[0]), ay = ly + (+pr[1]);
+        tiles.push({ x: ax, y: ay, d: data.subarray(pos, pos + size) }); pos += size;
+        x0 = Math.min(x0, ax); y0 = Math.min(y0, ay); x1 = Math.max(x1, ax + tw); y1 = Math.max(y1, ay + th);
+      }
+      x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(D.W, x1); y1 = Math.min(D.H, y1);
+      if(!tiles.length || x1 <= x0 || y1 <= y0){ skipped++; continue; }
+      var bw = x1 - x0, bh = y1 - y0, buf = new Uint8ClampedArray(bw * bh * 4), any = false;
+      for(var ti = 0; ti < tiles.length; ti++){
+        var tl = tiles[ti], raw = tl.d[0] === 1 ? lzfDecompress(tl.d.subarray(1), plane * ps) : tl.d.subarray(1);
+        for(var j = 0; j < th; j++){
+          var py = tl.y + j; if(py < y0 || py >= y1) continue;
+          for(var i2 = 0; i2 < tw; i2++){
+            var px2 = tl.x + i2; if(px2 < x0 || px2 >= x1) continue;
+            var si = j * tw + i2, r, g, b, a;
+            if(kind === 'rgba8'){ b = raw[si]; g = raw[plane + si]; r = raw[2 * plane + si]; a = raw[3 * plane + si]; }
+            else if(kind === 'rgba16'){ b = raw[si * 2 + 1]; g = raw[(plane + si) * 2 + 1]; r = raw[(2 * plane + si) * 2 + 1]; a = raw[(3 * plane + si) * 2 + 1]; }   // little-endian: high byte is the 8-bit value
+            else { r = g = b = raw[si]; a = raw[plane + si]; }
+            if(!a) continue;
+            any = true;
+            var o = ((py - y0) * bw + (px2 - x0)) * 4; buf[o] = r; buf[o + 1] = g; buf[o + 2] = b; buf[o + 3] = a;
+          }
+        }
+      }
+      if(!any){ skipped++; continue; }
+      out.push({ name: it.name, l: x0, t: y0, w: bw, h: bh, px: buf, opacity: Math.max(0, Math.min(1, it.opa)), hidden: it.hid, appBlend: KBLEND[it.el.getAttribute('compositeop')] || 'normal', sect: 0 });
+    }
+    if(!out.length && D.zip.has('mergedimage.png')){   // nothing readable layer-by-layer: fall back to Krita's own flattened picture
+      try{
+        var bmp = await createImageBitmap(new Blob([await D.zip.read('mergedimage.png')], { type: 'image/png' })), mc = document.createElement('canvas');
+        mc.width = D.W; mc.height = D.H; var mg = mc.getContext('2d'); mg.drawImage(bmp, 0, 0, D.W, D.H);
+        out.push({ name: 'Image', l: 0, t: 0, w: D.W, h: D.H, px: mg.getImageData(0, 0, D.W, D.H).data, opacity: 1, hidden: false, appBlend: 'normal', sect: 0 });
+      }catch(e){}
+    }
+    return { W: D.W, H: D.H, layers: out, skipped: skipped, skippedWhat: 'unreadable' };
+  }
+
+  // Aseprite (.aseprite / .ase): header + frames of chunks (layers 0x2004, cels 0x2005, palette 0x2019 / old 0x0004, 0x0011).
+  // Returns the usual parse shape for the "as layers" path (frame 1's cels) plus `cels` (every cel) and `anim` for the "as frames" path.
+  async function aseInflate(u8){
+    var rs = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate'));
+    return new Uint8Array(await new Response(rs).arrayBuffer());
+  }
+  function aseReadHeader(buf){
+    var dv = new DataView(buf);
+    if(buf.byteLength < 16 || dv.getUint16(4, true) !== 0xA5E0) throw new Error('That doesn\'t look like an Aseprite file.');
+    return { W: dv.getUint16(8, true), H: dv.getUint16(10, true) };
+  }
+  async function aseParse(buf){
+    var hd = aseReadHeader(buf), dv = new DataView(buf), u8 = new Uint8Array(buf), W = hd.W, H = hd.H;
+    if(buf.byteLength < 128) throw new Error('That Aseprite file is cut short.');
+    var nFrames = dv.getUint16(6, true), depth = dv.getUint16(12, true), transIdx = u8[28], bpp = depth === 32 ? 4 : depth === 16 ? 2 : 1;
+    if(depth !== 32 && depth !== 16 && depth !== 8) throw new Error('Unsupported Aseprite color depth (' + depth + ').');
+    var BL = { 0: 'normal', 1: 'multiply', 2: 'screen', 3: 'overlay', 4: 'darken', 5: 'lighten', 6: 'color-dodge', 7: 'color-burn', 8: 'hard-light', 9: 'soft-light', 10: 'difference' };
+    var utf = new TextDecoder('utf-8'), pal = [], palNew = false, layers = [], grp = [], pool = [], frameMap = [], durs = [], skipped = 0, pos = 128;
+    function toRGBA(raw, w, h, L){
+      var o = new Uint8ClampedArray(w * h * 4), n = w * h, i, q;
+      for(i = 0; i < n; i++){
+        q = i * 4;
+        if(depth === 32){ o[q] = raw[i * 4]; o[q + 1] = raw[i * 4 + 1]; o[q + 2] = raw[i * 4 + 2]; o[q + 3] = raw[i * 4 + 3]; }
+        else if(depth === 16){ o[q] = o[q + 1] = o[q + 2] = raw[i * 2]; o[q + 3] = raw[i * 2 + 1]; }
+        else {
+          var ix = raw[i];
+          if(ix === transIdx && !L.bg) continue;
+          var c = pal[ix] || [0, 0, 0, 255]; o[q] = c[0]; o[q + 1] = c[1]; o[q + 2] = c[2]; o[q + 3] = c[3];
+        }
+      }
+      return o;
+    }
+    for(var f = 0; f < nFrames; f++){
+      impProg(0.03 + 0.9 * f / nFrames, 'Frame ' + (f + 1) + ' of ' + nFrames);
+      if(pos + 16 > buf.byteLength || dv.getUint16(pos + 4, true) !== 0xF1FA) throw new Error('That Aseprite file looks damaged (bad frame header).');
+      var fEnd = pos + dv.getUint32(pos, true), oldC = dv.getUint16(pos + 6, true), newC = dv.getUint32(pos + 12, true), nCh = newC || oldC, cp = pos + 16, map = {};
+      durs.push(dv.getUint16(pos + 8, true) || 100);
+      for(var c = 0; c < nCh && cp + 6 <= fEnd; c++){
+        var csz = dv.getUint32(cp, true), ty = dv.getUint16(cp + 4, true), d = cp + 6, cEnd = cp + csz;
+        if(ty === 0x2004){
+          var fl = dv.getUint16(d, true), lt = dv.getUint16(d + 2, true), lv = dv.getUint16(d + 4, true), blend = dv.getUint16(d + 10, true), op = u8[d + 12] / 255;
+          var nl = dv.getUint16(d + 16, true), nm = utf.decode(u8.subarray(d + 18, d + 18 + nl));
+          var par = lv > 0 && grp[lv - 1] ? grp[lv - 1] : { vis: true, opa: 1 };
+          var L = { name: nm, vis: par.vis && !!(fl & 1), opa: par.opa * op, blend: BL[blend] || 'normal', type: lt, bg: !!(fl & 8), ref: !!(fl & 64) };
+          grp[lv] = { vis: L.vis, opa: L.opa };
+          layers.push(L);
+        } else if(ty === 0x2005){
+          var li = dv.getUint16(d, true), x = dv.getInt16(d + 2, true), y = dv.getInt16(d + 4, true), co = u8[d + 6] / 255, ct = dv.getUint16(d + 7, true), LL = layers[li];
+          if(!LL || LL.type !== 0 || LL.ref){ if(LL && !LL.ref && LL.type !== 1) skipped++; }
+          else if(ct === 1){ var src = frameMap[dv.getUint16(d + 16, true)]; if(src && src[li] !== undefined) map[li] = src[li]; }
+          else if(ct === 0 || ct === 2){
+            var w = dv.getUint16(d + 16, true), h = dv.getUint16(d + 18, true);
+            var raw = ct === 0 ? u8.subarray(d + 20, d + 20 + w * h * bpp) : await aseInflate(u8.subarray(d + 20, cEnd));
+            if(w && h && raw.length >= w * h * bpp){
+              pool.push({ name: LL.name, l: x, t: y, w: w, h: h, px: toRGBA(raw, w, h, LL), opacity: Math.max(0, Math.min(1, LL.opa * co)), hidden: !LL.vis, appBlend: LL.blend, sect: 0 });
+              map[li] = pool.length - 1;
+            }
+          } else skipped++;   // tilemap cel
+        } else if(ty === 0x2019){
+          var first = dv.getUint32(d + 4, true), last = dv.getUint32(d + 8, true), e = d + 20;
+          for(var pi = first; pi <= last && e + 6 <= cEnd; pi++){
+            var pf = dv.getUint16(e, true); pal[pi] = [u8[e + 2], u8[e + 3], u8[e + 4], u8[e + 5]]; e += 6;
+            if(pf & 1) e += 2 + dv.getUint16(e, true);
+          }
+          palNew = true;
+        } else if((ty === 0x0004 || ty === 0x0011) && !palNew){
+          var pk = dv.getUint16(d, true), pe = d + 2, pidx = 0;
+          for(var k = 0; k < pk; k++){
+            pidx += u8[pe]; var cnt = u8[pe + 1] || 256; pe += 2;
+            for(var m = 0; m < cnt; m++, pe += 3, pidx++){
+              var sc = ty === 0x0011 ? 255 / 63 : 1; pal[pidx] = [Math.round(u8[pe] * sc), Math.round(u8[pe + 1] * sc), Math.round(u8[pe + 2] * sc), 255];
+            }
+          }
+        }
+        cp = cEnd;
+      }
+      frameMap.push(map); pos = fEnd;
+    }
+    // timeline: pick the most common frame length as the base rate, and hold longer frames for however many base ticks they last
+    var freq = {}, base = 100, best = 0;
+    durs.forEach(function(dd){ freq[dd] = (freq[dd] || 0) + 1; if(freq[dd] > best){ best = freq[dd]; base = dd; } });
+    base = Math.max(10, base);
+    var fps = Math.max(1, Math.min(60, Math.round(1000 / base))), frames = [];
+    frameMap.forEach(function(map, fi){
+      var vis = [];
+      layers.forEach(function(L, li){ if(map[li] !== undefined && !pool[map[li]].hidden && pool[map[li]].opacity > 0) vis.push(map[li]); });
+      for(var r = Math.max(1, Math.round(durs[fi] / base)); r > 0; r--) frames.push(vis);
+    });
+    var first0 = [];
+    layers.forEach(function(L, li){ if(frameMap[0] && frameMap[0][li] !== undefined) first0.push(pool[frameMap[0][li]]); });
+    if(!pool.length) throw new Error('No pixel layers found in that Aseprite file.');
+    return { W: W, H: H, layers: first0, cels: pool, anim: { frames: frames, fps: fps }, skipped: skipped };
   }
 
   function sqliteReader(u8){   // minimal read-only SQLite 3 reader (table b-trees only; UTF-8) — enough for Clip Studio's embedded database
@@ -18306,7 +19073,7 @@
         }
       }
       var ownBlend = CBLEND[L.LayerComposite];
-      out.push({ name: (it.parent ? it.parent + '/' : '') + (L.LayerName || 'Layer'), cel: L.LayerName || '', l: x0, t: y0, w: lw, h: lh, px: buf, opacity: it.opa, hidden: it.hid, appBlend: ownBlend || it.inh.blend || 'normal', clip: L.LayerClip === 1 && !it.inh.base, oi: oi, anim: it.anim, base: it.inh.base, fhid: it.fhid, own: it.own, sect: 0 });
+      out.push({ name: L.LayerName || 'Layer', cel: L.LayerName || '', l: x0, t: y0, w: lw, h: lh, px: buf, opacity: it.opa, hidden: it.hid, appBlend: ownBlend || it.inh.blend || 'normal', clip: L.LayerClip === 1 && !it.inh.base, oi: oi, anim: it.anim, base: it.inh.base, fhid: it.fhid, own: it.own, sect: 0 });
     }
     // Timeline: which cel each animation folder shows on each frame
     var anim = null;
@@ -18392,17 +19159,17 @@
   window.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !choiceOverlay.hidden){ e.stopPropagation(); closeChoice(null); } }, true);
 
   async function importPsdAsLayers(file){
-    var isProc = /\.procreate$/i.test(file.name), isClip = /\.clip$/i.test(file.name);
-    if(!isProc && !isClip && !/\.psd$/i.test(file.name)){ await askNotice('Unsupported file', 'Pick a Photoshop (.psd), Procreate (.procreate) or Clip Studio (.clip) file.'); return; }
+    var isProc = /\.procreate$/i.test(file.name), isClip = /\.clip$/i.test(file.name), isKra = /\.kra$/i.test(file.name), isAse = /\.(aseprite|ase)$/i.test(file.name);
+    if(!isProc && !isClip && !isKra && !isAse && !/\.psd$/i.test(file.name)){ await askNotice('Unsupported file', 'Pick a Photoshop (.psd), Procreate (.procreate), Clip Studio (.clip), Krita (.kra) or Aseprite (.aseprite) file.'); return; }
     var originalTitle = importBtn.title, originalLabel = importBtn.getAttribute('aria-label');
-    importBtn.disabled = true; impBegin(isProc ? 'Procreate file' : isClip ? 'Clip Studio file' : 'Photoshop file'); importBtn.title = isProc ? 'Reading Procreate file…' : isClip ? 'Reading Clip Studio file…' : 'Reading PSD…';
+    importBtn.disabled = true; impBegin(isAse ? 'Aseprite file' : isKra ? 'Krita file' : isProc ? 'Procreate file' : isClip ? 'Clip Studio file' : 'Photoshop file'); importBtn.title = isAse ? 'Reading Aseprite file…' : isKra ? 'Reading Krita file…' : isProc ? 'Reading Procreate file…' : isClip ? 'Reading Clip Studio file…' : 'Reading PSD…';
     try{
-      var psd = isProc ? await procreateParse(file) : isClip ? await clipParse(await file.arrayBuffer()) : psdParse(await file.arrayBuffer());
-      var fmtName = isProc ? 'Procreate' : isClip ? 'Clip Studio' : 'PSD';
-      if(isClip && psd.anim && psd.anim.frames.length > 1){
+      var psd = isAse ? await aseParse(await file.arrayBuffer()) : isKra ? await kraParse(file) : isProc ? await procreateParse(file) : isClip ? await clipParse(await file.arrayBuffer()) : psdParse(await file.arrayBuffer());
+      var fmtName = isAse ? 'Aseprite' : isKra ? 'Krita' : isProc ? 'Procreate' : isClip ? 'Clip Studio' : 'PSD';
+      if((isClip || isAse) && psd.anim && psd.anim.frames.length > 1){
         var how = await askChoice({
           title: 'Import as an animation?',
-          desc: 'This Clip Studio file has a timeline: ' + psd.anim.frames.length + ' frames at ' + psd.anim.fps + ' fps. Bring it in as animation frames, or as layers on the current frame?',
+          desc: 'This ' + fmtName + ' file has a timeline: ' + psd.anim.frames.length + ' frames at ' + psd.anim.fps + ' fps. Bring it in as animation frames, or as layers on the current frame?',
           choices: [{ label: 'Cancel', value: 'cancel' }, { label: 'As layers', value: 'layers' }, { label: 'As frames', value: 'frames', primary: true }],
           dismissValue: 'cancel'
         });
@@ -18419,7 +19186,7 @@
             if(show) psd.anim.frames = psd.anim.framesShowHidden;
           }
           importBtn.title = 'Building frames…';
-          await clipImportAsFrames(psd);
+          await clipImportAsFrames(isAse ? { W: psd.W, H: psd.H, layers: psd.cels, anim: psd.anim, fmt: 'Aseprite' } : psd);
           return;
         }
       }
@@ -18451,6 +19218,8 @@
         pushFrameOp('Imported ' + list.length + ' ' + fmtName + ' layer' + (list.length === 1 ? '' : 's'), hs);
       });
       if(total > list.length) askNotice('Some layers were left out', 'That file has ' + total + ' layers; only the first ' + list.length + ' were added.');
+      else if(psd.skipped && isAse) showNote('Skipped ' + psd.skipped + ' Aseprite cel' + (psd.skipped === 1 ? '' : 's') + ' it couldn\'t read (tilemap layers).');
+      else if(psd.skipped && isKra) showNote('Skipped ' + psd.skipped + ' Krita layer' + (psd.skipped === 1 ? '' : 's') + ' it couldn\'t read (vector, filter, clone or an unsupported color mode).');
       else if(psd.skipped && isClip) showNote('Skipped ' + psd.skipped + ' vector layer' + (psd.skipped === 1 ? '' : 's') + ' (Clip Studio only saves their outlines, not pixels).');
     }catch(err){
       impFail(); if(err && err.impCancel) return;
@@ -18519,7 +19288,7 @@
     rangeOnInsert(at, made.length);
     if(state.fps !== psd.anim.fps) setFps(psd.anim.fps);
     renderFilmstrip(); selectFrame(at); persist();
-    pushFrameOp('Imported ' + psd.anim.frames.length + ' Clip Studio frames', hs);
+    pushFrameOp('Imported ' + psd.anim.frames.length + ' ' + (psd.fmt || 'Clip Studio') + ' frames', hs);
     showNote('Imported ' + psd.anim.frames.length + ' frames at ' + psd.anim.fps + ' fps' + (made.length < psd.anim.frames.length ? ' (identical neighbouring frames are held, not duplicated)' : '') + (truncated ? '; stopped at ' + IMPORT_VIDEO_MAX_FRAMES + ' distinct frames' : '') + '.');
   }
   var importPsdInput = document.getElementById('importPsdInput');
@@ -18575,7 +19344,7 @@
 
     video.addEventListener('error', function(){
       impFail(); finish();
-      uiAlert('Could not load that video file.');
+      uiAlert(/\.mkv$/i.test(file.name) ? 'This browser could not open that .mkv file. Chrome and Edge usually can; otherwise convert it to MP4 or WebM first. (A video using an unusual codec, such as HEVC, may also fail.)' : 'Could not load that video file.');
     });
 
     video.addEventListener('loadedmetadata', function(){
@@ -19110,6 +19879,11 @@
   var exportMp4Btn = document.getElementById('exportMp4Btn');
   var exportWebmBtn = document.getElementById('exportWebmBtn');
 
+  var exportMkvBtn = document.getElementById('exportMkvBtn');
+  if(!getMkvMime()){
+    exportMkvBtn.disabled = true;
+    exportMkvBtn.title = "Not supported in this browser (Chrome and Edge can do it) — try MP4, WebM or GIF instead";
+  }
   if(!getMp4Mime()){
     exportMp4Btn.disabled = true;
     exportMp4Btn.title = "Not supported in this browser — try WebM or GIF instead";
@@ -19163,6 +19937,7 @@
   exportGifBtn.addEventListener('click', function(){ closeExportPopover(); exportGif(); });
   exportMp4Btn.addEventListener('click', function(){ closeExportPopover(); exportMp4(); });
   exportWebmBtn.addEventListener('click', function(){ closeExportPopover(); exportWebm(); });
+  exportMkvBtn.addEventListener('click', function(){ closeExportPopover(); exportMkv(); });
   document.getElementById('exportSheetBtn').addEventListener('click', function(){ closeExportPopover(); openSpriteSheetDialog(); });
 
   // ---------- Sprite sheet layout dialog ----------
@@ -19411,6 +20186,125 @@
     document.addEventListener('visibilitychange', function(){ if(document.hidden) flush(); });
   }
 
+  // ---------- Tiled preview ----------
+  // state.tile: 'off' | 'both' | 'x' | 'y'. While on: (1) the layer canvases are clipped to the frame, so the bleed area stops showing its own
+  // content (it is only hidden, never changed, and comes back when tiling is switched off); (2) tileCanvas paints copies of the frame there;
+  // (3) every pen / eraser segment is also drawn shifted by whole frame sizes, so a stroke leaving one edge re-enters at the opposite one.
+  state.tile = 'off';
+  var TILE_KEY = 'scribbleTile', tileSrc = null, tileTimer = null;
+  function tileDrawOn(){ return state.tile !== 'off' && (state.tool === 'pen' || state.tool === 'eraser') && !state.playing; }
+  function tileRings(){   // how many frame-widths of bleed each side has (rounded up), per axis, for the current mode
+    var nx = (state.tile === 'both' || state.tile === 'x') ? Math.min(3, Math.ceil(FRAME_X / FRAME_W - 1e-6)) : 0;
+    var ny = (state.tile === 'both' || state.tile === 'y') ? Math.min(3, Math.ceil(FRAME_Y / FRAME_H - 1e-6)) : 0;
+    return { nx: nx, ny: ny };
+  }
+  function tileOffsets(){
+    var r = tileRings(), out = [[0, 0]];
+    for(var i = -r.nx; i <= r.nx; i++) for(var j = -r.ny; j <= r.ny; j++) if(i || j) out.push([i * FRAME_W, j * FRAME_H]);
+    return out;
+  }
+  var _strokeSegmentTile = strokeSegment;
+  strokeSegment = function(from, to){
+    if(!tileDrawOn()) return _strokeSegmentTile(from, to);
+    var offs = tileOffsets();
+    if(offs.length < 2) return _strokeSegmentTile(from, to);
+    brushChan = 0; tileLoop = true;
+    try{ offs.forEach(function(o){ _strokeSegmentTile({ x: from.x + o[0], y: from.y + o[1] }, { x: to.x + o[0], y: to.y + o[1] }); }); }
+    finally{ tileLoop = false; }
+  };
+  var tileCanvasEl = document.getElementById('tileCanvas'), tileCtx = tileCanvasEl.getContext('2d');
+  function tileClipTargets(){ return [onionCanvas, belowLayersCanvas, drawCanvas, aboveLayersCanvas]; }
+  function applyTileClip(on){
+    var v = '';
+    if(on){
+      var t = FRAME_Y / CANVAS_H * 100, l = FRAME_X / CANVAS_W * 100, b = (CANVAS_H - FRAME_Y - FRAME_H) / CANVAS_H * 100, r = (CANVAS_W - FRAME_X - FRAME_W) / CANVAS_W * 100;
+      v = 'inset(' + t + '% ' + r + '% ' + b + '% ' + l + '%)';
+    }
+    tileClipTargets().forEach(function(c){ if(c) c.style.clipPath = v; });
+  }
+  function renderTile(){
+    var on = state.tile !== 'off' && tileRings().nx + tileRings().ny > 0;
+    if(!on){ tileCanvasEl.style.display = 'none'; applyTileClip(false); return; }
+    if(tileCanvasEl.width !== CANVAS_W || tileCanvasEl.height !== CANVAS_H){ tileCanvasEl.width = CANVAS_W; tileCanvasEl.height = CANVAS_H; }
+    applyTileClip(true);
+    if(!tileSrc) tileSrc = document.createElement('canvas');
+    if(tileSrc.width !== FRAME_W || tileSrc.height !== FRAME_H){ tileSrc.width = FRAME_W; tileSrc.height = FRAME_H; }
+    var s = tileSrc.getContext('2d');
+    s.clearRect(0, 0, FRAME_W, FRAME_H);
+    s.imageSmoothingEnabled = false;
+    [belowLayersCanvas, drawCanvas, aboveLayersCanvas].forEach(function(c){
+      var op = parseFloat(c.style.opacity); s.globalAlpha = isNaN(op) ? 1 : op;
+      s.drawImage(c, FRAME_X, FRAME_Y, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H);
+    });
+    s.globalAlpha = 1;
+    tileCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+    tileCtx.imageSmoothingEnabled = false;
+    tileOffsets().forEach(function(o){ if(o[0] || o[1]) tileCtx.drawImage(tileSrc, FRAME_X + o[0], FRAME_Y + o[1]); });
+    tileCanvasEl.style.display = 'block';
+  }
+  // Tiles are drawn in the bleed area, so turning tiling on in a project with no bleed on a tiled axis grows the bleed to one extra
+  // frame on each side (+200%; capped so the canvas stays under 8192 px). It is an ordinary bleed change — adjustable in Bleed area.
+  function tileEnsureBleed(){
+    var needX = (state.tile === 'both' || state.tile === 'x') && BLEED_SCALE_X <= 1.0001, needY = (state.tile === 'both' || state.tile === 'y') && BLEED_SCALE_Y <= 1.0001;
+    if(!needX && !needY) return;
+    var nx = needX ? Math.min(3, 8192 / FRAME_W) : BLEED_SCALE_X, ny = needY ? Math.min(3, 8192 / FRAME_H) : BLEED_SCALE_Y;
+    if((needX && nx < 1.2) || (needY && ny < 1.2)){ showNote('This frame is too big to add room for the tiles around it.'); return; }
+    resizeBleed(nx, ny);
+  }
+  function tileInit(){
+    try{ var m = localStorage.getItem(TILE_KEY); if(m === 'both' || m === 'x' || m === 'y') state.tile = m; }catch(e){}
+    var btn = document.getElementById('tileBtn'), TILE_OPTS = [['off', 'Off'], ['both', 'Both'], ['x', 'Horizontal'], ['y', 'Vertical']];
+    function tileLabel(){ for(var i = 0; i < TILE_OPTS.length; i++) if(TILE_OPTS[i][0] === state.tile) btn.firstChild.textContent = TILE_OPTS[i][1]; }
+    tileLabel();
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      openBlendMenu(btn, state.tile, function(v){
+        state.tile = v; try{ localStorage.setItem(TILE_KEY, state.tile); }catch(err){}
+        tileLabel(); renderTile();
+        if(state.tile !== 'off') tileEnsureBleed();
+      }, TILE_OPTS);
+    });
+    if(tileTimer) clearInterval(tileTimer);
+    tileTimer = setInterval(function(){ if(state.tile !== 'off' && !document.hidden) renderTile(); }, 100);
+    window.addEventListener('pointerup', function(){ if(state.tile !== 'off') setTimeout(renderTile, 0); });
+    renderTile();
+  }
+
+  // ---------- Pixel grid / pixel mode switches ----------
+  var PIXEL_KEY = 'scribblePixelTools';
+  state.pixelGrid = false; state.pixelMode = false;
+  function updatePixelGrid(){
+    var el = document.getElementById('pixelGrid'); if(!el) return;
+    var cw = canvasStage.offsetWidth, ch = canvasStage.offsetHeight, z = zoomState.scale || 1;
+    var cellX = cw / CANVAS_W, cellY = ch / CANVAS_H;
+    // only worth showing once a pixel is a few screen pixels wide, otherwise it is just a grey wash
+    if(!state.pixelGrid || state.playing || !cw || cellX * z * (window.devicePixelRatio || 1) < 6){ el.style.display = 'none'; return; }
+    var t = 1 / z, c = 'rgba(128,128,128,.55)';   // line is one screen pixel thick whatever the zoom
+    el.style.backgroundImage = 'linear-gradient(to right,' + c + ' 0,' + c + ' ' + t + 'px,transparent ' + t + 'px),linear-gradient(to bottom,' + c + ' 0,' + c + ' ' + t + 'px,transparent ' + t + 'px)';
+    el.style.backgroundSize = cellX + 'px ' + cellY + 'px';
+    el.style.display = 'block';
+  }
+  function bleedTintInit(){
+    var chk = document.getElementById('bleedTintToggle'), on = true;
+    try{ on = localStorage.getItem('scribbleBleedTint') !== '0'; }catch(e){}
+    chk.checked = on; canvasStage.classList.toggle('no-bleed-tint', !on);
+    chk.addEventListener('change', function(){
+      canvasStage.classList.toggle('no-bleed-tint', !chk.checked);
+      try{ localStorage.setItem('scribbleBleedTint', chk.checked ? '1' : '0'); }catch(e){}
+    });
+  }
+  function pixelToolsInit(){
+    try{ var o = JSON.parse(localStorage.getItem(PIXEL_KEY) || 'null'); if(o){ state.pixelGrid = !!o.grid; state.pixelMode = !!o.mode; } }catch(e){}
+    var g = document.getElementById('pixelGridToggle'), m = document.getElementById('pixelModeToggle');
+    g.checked = state.pixelGrid; m.checked = state.pixelMode;
+    function save(){ try{ localStorage.setItem(PIXEL_KEY, JSON.stringify({ grid: state.pixelGrid, mode: state.pixelMode })); }catch(e){} }
+    g.addEventListener('change', function(){ state.pixelGrid = g.checked; save(); updatePixelGrid(); });
+    m.addEventListener('change', function(){ state.pixelMode = m.checked; save(); });
+    var _ucv = updateCrispView; updateCrispView = function(){ _ucv.apply(this, arguments); updatePixelGrid(); };
+    window.addEventListener('resize', updatePixelGrid);
+    updatePixelGrid();
+  }
+
   // ---------- Init ----------
   function init(){
     blankDataURL = makeBlankFrame();
@@ -19426,6 +20320,9 @@
     updateSizeDot();
     applyColor(state.color, { skipDeselect:true });
     perToolInit();
+    pixelToolsInit();
+    bleedTintInit();
+    tileInit();
 
     loadProject().then(function(hadSaved){
       var pend = null;
@@ -19433,7 +20330,7 @@
         try{
           pend = JSON.parse(localStorage.getItem(PROJ_PENDING_KEY) || 'null');
           localStorage.removeItem(PROJ_PENDING_KEY);
-          if(pend && pend.w > 0 && pend.h > 0){ setCanvasSizeForNewProject(pend.w, pend.h); blankDataURL = makeBlankFrame(); }
+          if(pend && pend.w > 0 && pend.h > 0){ if(pend.noBleed){ BLEED_SCALE_X = 1; BLEED_SCALE_Y = 1; } setCanvasSizeForNewProject(pend.w, pend.h); blankDataURL = makeBlankFrame(); }
         }catch(e){}
         state.frames = [makeFrameObj(blankDataURL)];
         state.current = 0;
